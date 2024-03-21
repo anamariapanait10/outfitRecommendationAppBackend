@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'outfitRecommendationAppBackend'
+    'app'
 ]
 
 MIDDLEWARE = [
@@ -132,7 +132,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "outfitRecommendationAppBackend.middleware.JWTAuthenticationMiddleware",
+        "app.middleware.JWTAuthenticationMiddleware",
         "rest_framework.authentication.BasicAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
@@ -140,3 +140,22 @@ REST_FRAMEWORK = {
     #     'rest_framework.renderers.JSONRenderer',
     # )
 }
+
+# LOGGING = {
+#    'version': 1,
+#    'disable_existing_loggers': False,
+#    'handlers': {
+#       'file': {
+#          'level': 'DEBUG',
+#          'class': 'logging.FileHandler',
+#          'filename': 'debug.log',
+#       },
+#    },
+#    'loggers': {
+#       'django': {
+#          'handlers': ['file'],
+#          'level': 'DEBUG',
+#          'propagate': True,
+#       },
+#    },
+# }

@@ -5,3 +5,4 @@ class OutfitItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OutfitItem
         fields = '__all__'
+        

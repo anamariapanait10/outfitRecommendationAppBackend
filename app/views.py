@@ -1,8 +1,8 @@
 from django.contrib.auth.models import User
-from outfitRecommendationAppBackend.models import OutfitItem, Wardrobe
+from app.models import OutfitItem, Wardrobe
 from rest_framework import permissions, serializers, viewsets, status
 from rest_framework.response import Response
-
+from rest_framework.decorators import action
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -37,6 +37,25 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
     serializer_class = OutfitItemSerializer
     permission_classes = [permissions.IsAuthenticated]
     
+    def create(self, request, *args, **kwargs):
+        # print(request.data)
+        # if not Wardrobe.objects.filter(user_id=request.data['user_id']).exists():
+        #     print("nu exista")
+        #     Wardrobe.objects.create(user_id=request.data['user_id']) 
+        
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            # Accessing serializer errors here
+            print(serializer.errors)  # Example of printing errors to the console
+            print("erori la serializare")
+            # You could log these errors, handle them, or customize the response
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # If the data is valid, proceed with creation
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
 
 class WardrobeViewSet(viewsets.ModelViewSet):
     """
@@ -52,6 +71,7 @@ class WardrobeViewSet(viewsets.ModelViewSet):
         if not serializer.is_valid():
             # Accessing serializer errors here
             print(serializer.errors)  # Example of printing errors to the console
+            print("erori la serializare")
             # You could log these errors, handle them, or customize the response
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
@@ -59,3 +79,8 @@ class WardrobeViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+class ClassificationViewSet(viewsets.ViewSet):
+    @action(detail=False, methods=['get'])
+    def classify(self, request):
+        return Response('Hello World')

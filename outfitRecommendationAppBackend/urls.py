@@ -17,12 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework import routers
-from outfitRecommendationAppBackend import views
+from app import views
 
 router = routers.DefaultRouter()
 router.register(r"users", views.UserViewSet)
 router.register(r"outfit-items", views.OutfitItemViewSet)
 router.register(r"wardrobes", views.WardrobeViewSet)
+# router.register(r"classification", views.ClassificationViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
