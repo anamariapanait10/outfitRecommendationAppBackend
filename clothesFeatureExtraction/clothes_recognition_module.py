@@ -9,22 +9,23 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.utils import plot_model
+from tensorflow.keras.models import load_model
 import colorsys          
 import base64                                           
 import PIL.Image as Image
 from scipy.spatial import KDTree
 from webcolors import (
-   CSS3_HEX_TO_NAMES,
+    CSS3_HEX_TO_NAMES,
     hex_to_rgb
 )
 from clothesFeatureExtraction.utils import (
-       BODYWEAR,
-       BOTTOMWEAR,
-       FOOTWEAR,
-       IMG_HEIGHT,
-       IMG_WIDTH,
-       LOCAL_PATH,
-       TOPWEAR,
+    BODYWEAR,
+    BOTTOMWEAR,
+    FOOTWEAR,
+    IMG_HEIGHT,
+    IMG_WIDTH,
+    LOCAL_PATH,
+    TOPWEAR,
 )
 from clothesFeatureExtraction.subcategory_model import SubcategoryModel
 from clothesFeatureExtraction.topwear_model import TopwearModel
@@ -34,76 +35,130 @@ from clothesFeatureExtraction.bodywear_model import BodywearModel
 
 
 def classify_cloth_image(image_path):
-       img = cv2.imread(image_path)
-       
-       # resize the image if it's not the right size for the models
-       if img.shape != (IMG_HEIGHT, IMG_WIDTH, 3):
-              img = image.load_img(image_path, target_size=(IMG_HEIGHT, IMG_WIDTH, 3))
-       
-       # create a batch of 1 image to feed into the model
-       test_images = np.zeros((1, IMG_HEIGHT, IMG_WIDTH, 3))
-       test_images[0] = img
-       plt.imshow(img)
-       plt.show()
-       subcategory_model = SubcategoryModel()
-       subcategory_prediction = subcategory_model.get_model_prediction(test_images)
-       print(subcategory_prediction)
-       
-       # get the model corresponding to the subcategory prediction
-       model = None
-       if subcategory_prediction == TOPWEAR:
-              model = TopwearModel()
-       elif subcategory_prediction == BOTTOMWEAR:
-              model = BottomwearModel()
-       elif subcategory_prediction == FOOTWEAR:
-              model = FootwearModel()
-       elif subcategory_prediction == BODYWEAR:
-              model = BodywearModel()
+    img = cv2.imread(image_path)
+    
+    # resize the image if it's not the right size for the models
+    if img.shape != (IMG_HEIGHT, IMG_WIDTH, 3):
+        img = image.load_img(image_path, target_size=(IMG_HEIGHT, IMG_WIDTH, 3))
+    
+    # create a batch of 1 image to feed into the model
+    test_images = np.zeros((1, IMG_HEIGHT, IMG_WIDTH, 3))
+    test_images[0] = img
+    plt.imshow(img)
+    plt.show()
+    subcategory_model = SubcategoryModel()
+    subcategory_prediction = subcategory_model.get_model_prediction(test_images)
+    print(subcategory_prediction)
+    
+    # get the model corresponding to the subcategory prediction
+    model = None
+    if subcategory_prediction == TOPWEAR:
+        model = TopwearModel()
+    elif subcategory_prediction == BOTTOMWEAR:
+        model = BottomwearModel()
+    elif subcategory_prediction == FOOTWEAR:
+        model = FootwearModel()
+    elif subcategory_prediction == BODYWEAR:
+        model = BodywearModel()
 
-       return model.get_model_prediction(test_images)
+    return model.get_model_prediction(test_images)
        
 
 def classify_cloth_image_from_base64(b64_image_string):
-       b64_image_string = b64_image_string[len("data:image/jpeg;base64,"):]
-       img_data = base64.b64decode(b64_image_string)
-       # Convert this data into a format that OpenCV can read
-       img_array = np.frombuffer(img_data, dtype=np.uint8)
-       print(img_array)
-       img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-       
-       # resize the image if it's not the right size for the models
-       if img.shape != (IMG_HEIGHT, IMG_WIDTH, 3):
-              img = cv2.resize(img, (IMG_WIDTH, IMG_HEIGHT), interpolation=cv2.INTER_LINEAR)
-       
-       # create a batch of 1 image to feed into the model
-       test_images = np.zeros((1, IMG_HEIGHT, IMG_WIDTH, 3))
-       test_images[0] = img
-       # cv2.imshow('asd', img)
-       # cv2.waitKey(0)
-       subcategory_model = SubcategoryModel()
-       subcategory_prediction = subcategory_model.get_model_prediction(test_images)
-       print(subcategory_prediction)
-       
-       # get the model corresponding to the subcategory prediction
-       model = None
-       if subcategory_prediction == TOPWEAR:
-              model = TopwearModel()
-       elif subcategory_prediction == BOTTOMWEAR:
-              model = BottomwearModel()
-       elif subcategory_prediction == FOOTWEAR:
-              model = FootwearModel()
-       elif subcategory_prediction == BODYWEAR:
-              model = BodywearModel()
+    b64_image_string = b64_image_string[len("data:image/jpeg;base64,"):]
+    img_data = base64.b64decode(b64_image_string)
+    # Convert this data into a format that OpenCV can read
+    img_array = np.frombuffer(img_data, dtype=np.uint8)
+    print(img_array)
+    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+    
+    # resize the image if it's not the right size for the models
+    if img.shape != (IMG_HEIGHT, IMG_WIDTH, 3):
+        img = cv2.resize(img, (IMG_WIDTH, IMG_HEIGHT), interpolation=cv2.INTER_LINEAR)
+    
+    # create a batch of 1 image to feed into the model
+    test_images = np.zeros((1, IMG_HEIGHT, IMG_WIDTH, 3))
+    test_images[0] = img
+    # cv2.imshow('asd', img)
+    # cv2.waitKey(0)
+    subcategory_model = SubcategoryModel()
+    subcategory_prediction = subcategory_model.get_model_prediction(test_images)
+    print(subcategory_prediction)
+    
+    # get the model corresponding to the subcategory prediction
+    model = None
+    if subcategory_prediction == TOPWEAR:
+        model = TopwearModel()
+    elif subcategory_prediction == BOTTOMWEAR:
+        model = BottomwearModel()
+    elif subcategory_prediction == FOOTWEAR:
+        model = FootwearModel()
+    elif subcategory_prediction == BODYWEAR:
+        model = BodywearModel()
 
-       return model.get_model_prediction(test_images)
+    return model.get_model_prediction(test_images)
+
+def classify_from_base64(b64_image_string, model_path, class_names):
+    model = load_model(model_path)
+    b64_image_string = b64_image_string[len("data:image/jpeg;base64,"):]
+    image_binary = base64.b64decode(b64_image_string)
+    
+    img = tf.io.decode_image(image_binary, channels=3)
+    img = tf.image.resize(img, size=[224, 224])
+    img = img / 255.
+    pred = model.predict(tf.expand_dims(img, axis=0))
+    pred_class = None
+    if len(pred[0]) > 1: # check for multi-class
+        pred_class = class_names[pred.argmax()] # if more than one output, take the max
+    else:
+        pred_class = class_names[int(tf.round(pred)[0][0])]
+    print(pred_class)
+    return pred_class
+    
+def classify_category_from_b64(b64_image_string):
+    category_class_names = ['Accessories', 'Bodywear', 'Bottomwear', 'Footwear', 'Headwear', 'Topwear'] # 6 classes
+    return classify_from_base64(b64_image_string, 'models/category_classification.h5', category_class_names)
+
+def classify_subcategory_from_b64(b64_image_string):
+    article_type_class_names = [
+        'Shirts', 'Jeans', 'Watches', 'Track Pants', 'Tshirts', 'Casual Shoes', 'Belts', 'Flip Flops',
+        'Handbags', 'Tops', 'Sandals', 'Sweatshirts', 'Formal Shoes', 'Bracelet', 'Flats', 'Waistcoat',
+        'Sports Shoes', 'Shorts', 'Heels', 'Pendant', 'Dresses', 'Skirts', 'Blazers', 'Ring',
+        'Clutches', 'Shrug', 'Backpacks', 'Caps', 'Trousers', 'Earrings', 'Jewellery Set', 'Capris',
+        'Tunics', 'Jackets', 'Necklace and Chains', 'Duffel Bag', 'Sports Sandals', 'Sweaters', 'Tracksuits', 'Swimwear',
+        'Ties', 'Leggings', 'Travel Accessory', 'Mobile Pouch', 'Messenger Bag', 'Accessory Gift Set', 'Jumpsuit', 'Suspenders',
+        'Patiala', 'Stockings', 'Headband', 'Tights', 'Tablet Sleeve', 'Nehru Jackets', 'Salwar', 'Jeggings',
+        'Rompers', 'Waist Pouch', 'Hair Accessory', 'Rucksacks', 'Key chain', 'Rain Jacket', 'Water Bottle', 'Hat',
+        'Suits'
+    ] # 65 classes
+    return classify_from_base64(b64_image_string, 'models/subcategory_classification.h5', article_type_class_names)
+
+def classify_season_from_b64(b64_image_string):
+    season_class_names = ['Summer', 'Winter', 'Spring', 'Autumn'] # 4 classes
+    return classify_from_base64(b64_image_string, 'models/season_classification.h5', season_class_names)
+
+def classify_color_from_b64(b64_image_string):
+    color_class_names = [
+        "Navy Blue", "Blue", "Silver", "Black", "Grey", "Green", "Purple", "White", "Brown",
+        "Bronze", "Teal", "Copper", "Pink", "Off White", "Beige", "Red", "Khaki", "Orange", 
+        "Yellow", "Charcoal", "Steel", "Gold", "Tan", "Magenta", "Lavender", "Sea Green", 
+        "Cream", "Peach", "Olive", "Burgundy", "Multi", "Maroon", "Grey Melange", "Rust", 
+        "Turquoise Blue", "Metallic", "Mustard", "Coffee Brown", "Taupe", "Mauve", 
+        "Mushroom Brown", "Nude", "Fluorescent Green", "Lime Green", "Rose"
+    ] # 45 classes
+    return classify_from_base64(b64_image_string, 'models/base_color_classification.h5', color_class_names)
+
+def classify_usage_from_b64(b64_image_string):
+    usage_class_names =['Casual', 'Ethnic', 'Formal', 'Sports', 'Smart Casual', 'Travel', 'Party'] # 7 classes
+    return classify_from_base64(b64_image_string, 'models/usage_classification.h5', usage_class_names)
 
 def main():
-       print(classify_cloth_image(LOCAL_PATH + r"\garderoba\pantofi2.jpg"))
+    print(classify_cloth_image(LOCAL_PATH + r"\garderoba\pantofi2.jpg"))
 
 # pantaloni -> topwear, footwear
 # bluza -> footwear
 # pantofi -> bottomwear
 
 if __name__ == "__main__":
-       print("Start")
-       main()
+    print("Start")
+    main()

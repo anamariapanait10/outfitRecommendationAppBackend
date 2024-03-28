@@ -10,6 +10,7 @@ from sklearn.preprocessing import LabelEncoder
 LOCAL_PATH = r"C:\Users\Ana\Desktop\Licenta\featureExtraction"
 IMAGES_PATH = LOCAL_PATH + "\images"
 DATA_PATH = LOCAL_PATH + "\styles.csv"
+MODELS_PATH = LOCAL_PATH + "\models"
 
 SUBCATEGORY = "SUBCATEGORY"
 TOPWEAR = "TOPWEAR"
@@ -65,10 +66,10 @@ class Model:
     
         # if the model is already trained, load it
         # else, train it and save it
-        print(tf.io.gfile.exists(LOCAL_PATH + rf"\models\{model_filename}"))
-        if tf.io.gfile.exists(LOCAL_PATH + rf"\models\{model_filename}"):
+        print(tf.io.gfile.exists(f"{MODELS_PATH}\{model_filename}"))
+        if tf.io.gfile.exists(f"{MODELS_PATH}\{model_filename}"):
             print("Load model...")
-            model = keras.models.load_model(LOCAL_PATH + rf"\models\{model_filename}")
+            model = keras.models.load_model(f"{MODELS_PATH}\{model_filename}")
         else:
             print("Train model...")
             df = self.get_dataframe()
