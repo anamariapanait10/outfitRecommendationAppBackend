@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
+from sklearn.naive_bayes import GaussianNB
 from sklearn.utils.class_weight import compute_class_weight
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -119,7 +120,7 @@ def classify_category_from_b64(b64_image_string):
     category_class_names = ['Accessories', 'Bodywear', 'Bottomwear', 'Footwear', 'Headwear', 'Topwear'] # 6 classes
     return classify_from_base64(b64_image_string, 'models/category_classification.h5', category_class_names)
 
-def classify_subcategory_from_b64(b64_image_string):
+def classify_subcategory_from_b64(b64_image_string, category):
     article_type_class_names = [
         'Shirts', 'Jeans', 'Watches', 'Track Pants', 'Tshirts', 'Casual Shoes', 'Belts', 'Flip Flops',
         'Handbags', 'Tops', 'Sandals', 'Sweatshirts', 'Formal Shoes', 'Bracelet', 'Flats', 'Waistcoat',
@@ -131,7 +132,12 @@ def classify_subcategory_from_b64(b64_image_string):
         'Rompers', 'Waist Pouch', 'Hair Accessory', 'Rucksacks', 'Key chain', 'Rain Jacket', 'Water Bottle', 'Hat',
         'Suits'
     ] # 65 classes
-    return classify_from_base64(b64_image_string, 'models/subcategory_classification.h5', article_type_class_names)
+    model_path = 'models/subcategory_classification.h5'
+    if category == "Topwear":
+        print("in Topwear")
+        model_path = 'models/subcategory_classification_topwear.h5'
+        
+    return classify_from_base64(b64_image_string, model_path, article_type_class_names)
 
 def classify_season_from_b64(b64_image_string):
     season_class_names = ['Summer', 'Winter', 'Spring', 'Autumn'] # 4 classes
@@ -152,13 +158,78 @@ def classify_usage_from_b64(b64_image_string):
     usage_class_names =['Casual', 'Ethnic', 'Formal', 'Sports', 'Smart Casual', 'Travel', 'Party'] # 7 classes
     return classify_from_base64(b64_image_string, 'models/usage_classification.h5', usage_class_names)
 
-def main():
-    print(classify_cloth_image(LOCAL_PATH + r"\garderoba\pantofi2.jpg"))
+def calc_wear_probability(number, mu=10, sigma=5):
+    return np.exp(-((number - mu) ** 2) / (2 * sigma ** 2))
 
-# pantaloni -> topwear, footwear
-# bluza -> footwear
-# pantofi -> bottomwear
+def calc_mean(temperature_probability, weather_prob):
+    return (temperature_probability + weather_prob) / 2
 
-if __name__ == "__main__":
-    print("Start")
-    main()
+
+def normalize_percentages(self, percentages):
+        total_sum = sum(percentages)
+        normalization_factor = 100 / total_sum
+        normalized_percentages = [round(p * normalization_factor, 2) for p in percentages]
+        
+        while sum(normalized_percentages) != 100:
+            for i in range(len(normalized_percentages)):
+                if sum(normalized_percentages) < 100:
+                    normalized_percentages[i] += 0.01
+                    normalized_percentages[i] = round(normalized_percentages[i], 2)
+                    if sum(normalized_percentages) == 100:
+                        break
+                elif sum(normalized_percentages) > 100:
+                    normalized_percentages[i] -= 0.01
+                    normalized_percentages[i] = round(normalized_percentages[i], 2)
+                    if sum(normalized_percentages) == 100:
+                        break
+        
+        return normalized_percentages
+
+def get_outfit_recommendation(likelihoods):
+    for item in items:
+        p_item = len([i for i in items if i == p_item]) / len(items)
+        p_weather = len([i for i in p_weathers if i == p_weathers]) / len(p_weathers)
+        calculate_posterior(p_item, likelihood, p_weather)
+
+def calculate_posterior(prior, likelihood, evidence):
+    """
+    Calculate the posterior probability using Bayes' Theorem.
+
+    :param prior: Prior probability of the hypothesis (P(H)).
+    :param likelihood: Probability of the evidence given the hypothesis (P(E|H)).
+    :param evidence: Total probability of the evidence (P(E)).
+    :return: Posterior probability (P(H|E)).
+    """
+    return (likelihood * prior) / evidence
+
+# Define the probabilities
+# Priors (Assuming equal probability for demonstration)
+priors = {'Cold and Snowy': 0.5, 'Hot and Sunny': 0.5}
+
+# Likelihoods
+likelihoods = {
+    'Coat': {'Cold and Snowy': 0.95, 'Hot and Sunny': 0.05},
+    'Shorts': {'Cold and Snowy': 0.05, 'Hot and Sunny': 0.95}
+}
+
+# Evidence (calculated as the sum of the product of prior and likelihood for each hypothesis)
+evidence = {
+    scenario: sum(priors[hypothesis] * likelihoods[clothing_item][hypothesis] 
+                  for hypothesis in priors for clothing_item in likelihoods)
+    for scenario in priors
+}
+
+# Calculate posterior probabilities for each clothing item in each scenario
+posterior_probabilities = {
+    clothing_item: {
+        scenario: calculate_posterior(priors[scenario], likelihoods[clothing_item][scenario], evidence[scenario])
+        for scenario in priors
+    } for clothing_item in likelihoods
+}
+
+# Output the calculated posterior probabilities
+for clothing_item in posterior_probabilities:
+    for scenario in posterior_probabilities[clothing_item]:
+        print(f"P({clothing_item}|{scenario}) = {posterior_probabilities[clothing_item][scenario]:.2f}")
+
+    

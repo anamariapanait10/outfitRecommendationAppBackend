@@ -20,8 +20,22 @@ class OutfitItem(models.Model):
     def __str__(self):
         return self.id
     
-
-
+class ItemProbability(models.Model):
+    outfitItem = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, primary_key=True)
+    sunnyHot = models.DecimalField(max_digits=3, decimal_places=2)
+    sunnyMild = models.DecimalField(max_digits=3, decimal_places=2)
+    sunnyCold = models.DecimalField(max_digits=3, decimal_places=2)
+    rainyHot = models.DecimalField(max_digits=3, decimal_places=2)
+    rainyMild = models.DecimalField(max_digits=3, decimal_places=2)
+    rainyCold = models.DecimalField(max_digits=3, decimal_places=2)
+    overcastHot = models.DecimalField(max_digits=3, decimal_places=2)
+    overcastMild = models.DecimalField(max_digits=3, decimal_places=2)
+    overcastCold = models.DecimalField(max_digits=3, decimal_places=2)
+    snowyHot = models.DecimalField(max_digits=3, decimal_places=2)
+    snowyMild = models.DecimalField(max_digits=3, decimal_places=2)
+    snowyCold = models.DecimalField(max_digits=3, decimal_places=2)
+    
+    
 # class Stats(models.Model):
 #     wardrobe = models.OneToOneField(Wardrobe, on_delete=models.CASCADE)
 #     worn_clothes_percentage = models.FloatField()
