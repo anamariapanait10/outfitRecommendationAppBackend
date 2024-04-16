@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
-from app.models import ItemProbability, OutfitItem, Wardrobe
+from django.db.models import Prefetch
+from app.models import ItemProbability, OutfitItem, Wardrobe, WornOutfits
 from rest_framework import permissions, serializers, viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -18,6 +19,15 @@ class WardrobeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wardrobe
         fields = '__all__'
+        
+class WornOutfitsSerializer(serializers.ModelSerializer):
+    top = OutfitItemSerializer()
+    bottom = OutfitItemSerializer()
+    shoes = OutfitItemSerializer()
+
+    class Meta:
+        model = WornOutfits
+        fields = ['date', 'user_id', 'top', 'bottom', 'shoes']
         
 class ItemProbabilitySerializer(serializers.ModelSerializer):
     class Meta:
@@ -195,3 +205,32 @@ class ClassificationViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def classify(self, request):
         return Response('Hello World')
+    
+
+class WornOutfitsViewSet(viewsets.ViewSet):
+    queryset = WornOutfits.objects.all()
+    serializer_class = WornOutfitsSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['get'])
+    def get_for_year_month(self, request):
+        wornOutfits = WornOutfits.objects.prefetch_related('top', 'bottom', 'shoes').filter(user_id=request.user).filter(date__startswith=request.query_params['yearMonth'])
+        result = {}
+        for item in wornOutfits:
+            serializer = WornOutfitsSerializer(item)
+            result[item.date] = serializer.data
+        
+        return Response(result)
+    
+
+    @action(detail=False, methods=['post'])
+    def wear(self, request):
+        outfitItems = request.data['outfit']
+        date = request.data['date']
+        top = next((obj for obj in outfitItems if obj.category == "Topwear"), None)
+        bottom = next((obj for obj in outfitItems if obj.category == "Bottomwear"), None)
+        shoes = next((obj for obj in outfitItems if obj.category == "Shoes"), None)
+
+        WornOutfits.objects.create(date=date, user=request.user, top=top, bottom=bottom, shoes=shoes)
+
+        return Response(status=status.HTTP_200_OK)
