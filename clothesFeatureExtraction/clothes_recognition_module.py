@@ -14,6 +14,7 @@ from tensorflow.keras.models import load_model
 import colorsys          
 import base64                                           
 import PIL.Image as Image
+import clothesFeatureExtraction.color_module as color_module
 from scipy.spatial import KDTree
 from webcolors import (
     CSS3_HEX_TO_NAMES,
@@ -144,15 +145,7 @@ def classify_season_from_b64(b64_image_string):
     return classify_from_base64(b64_image_string, 'models/season_classification.h5', season_class_names)
 
 def classify_color_from_b64(b64_image_string):
-    color_class_names = [
-        "Navy Blue", "Blue", "Silver", "Black", "Grey", "Green", "Purple", "White", "Brown",
-        "Bronze", "Teal", "Copper", "Pink", "Off White", "Beige", "Red", "Khaki", "Orange", 
-        "Yellow", "Charcoal", "Steel", "Gold", "Tan", "Magenta", "Lavender", "Sea Green", 
-        "Cream", "Peach", "Olive", "Burgundy", "Multi", "Maroon", "Grey Melange", "Rust", 
-        "Turquoise Blue", "Metallic", "Mustard", "Coffee Brown", "Taupe", "Mauve", 
-        "Mushroom Brown", "Nude", "Fluorescent Green", "Lime Green", "Rose"
-    ] # 45 classes
-    return classify_from_base64(b64_image_string, 'models/base_color_classification.h5', color_class_names)
+    return color_module.color_classification_b64(b64_image_string)
 
 def classify_usage_from_b64(b64_image_string):
     usage_class_names =['Casual', 'Ethnic', 'Formal', 'Sports', 'Smart Casual', 'Travel', 'Party'] # 7 classes
