@@ -55,11 +55,14 @@ class JWTAuthenticationMiddleware(BaseAuthentication):
                 algorithms=["RS256"],
                 options={"verify_signature": True},
             )
-        except jwt.ExpiredSignatureError:
+        except jwt.ExpiredSignatureError as e:
+            print('%s' % type(e))
             raise AuthenticationFailed("Token has expired.")
         except jwt.DecodeError as e:
+            print('%s' % type(e))
             raise AuthenticationFailed("Token decode error.")
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            print('%s' % type(e))
             raise AuthenticationFailed("Invalid token.")
 
         user_id = payload.get("sub")

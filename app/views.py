@@ -92,67 +92,21 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         print("snowyMild = ", format(snowyMild, '.2f'))
         print("snowyCold = ", format(snowyCold, '.2f'))
         
-        sunnyHotList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('sunnyHot', flat=True)).append(sunnyHot))
-        sunnyHot = sunnyHotList[-1]
-        ItemProbability.objects.bulk_update(sunnyHotList[:-1], ['sunnyHot'])
-        
-        sunnyMildList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('sunnyMild', flat=True)).append(sunnyMild))
-        sunnyMild = sunnyMildList[-1]
-        ItemProbability.objects.bulk_update(sunnyMildList[:-1], ['sunnyMild'])
-        
-        sunnyColdList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('sunnyCold', flat=True)).append(sunnyCold))
-        sunnyCold = sunnyColdList[-1]
-        ItemProbability.objects.bulk_update(sunnyColdList[:-1], ['sunnyCold'])
-        
-        overcastHotList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('overcastHot', flat=True)).append(overcastHot))
-        overcastHot = overcastHotList[-1]
-        ItemProbability.objects.bulk_update(overcastHotList[:-1], ['overcastHot'])
-        
-        overcastMildList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('overcastMild', flat=True)).append(overcastMild))
-        overcastMild = overcastMildList[-1]
-        ItemProbability.objects.bulk_update(overcastMildList[:-1], ['overcastMild'])
-        
-        overcastColdList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('overcastCold', flat=True)).append(overcastCold))
-        overcastCold = overcastColdList[-1]
-        ItemProbability.objects.bulk_update(overcastColdList[:-1], ['overcastCold'])
-        
-        rainyHotList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('rainyHot', flat=True)).append(rainyHot))
-        rainyHot = rainyHotList[-1]
-        ItemProbability.objects.bulk_update(rainyHotList[:-1], ['rainyHot'])
-        
-        rainyMildList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('rainyMild', flat=True)).append(rainyMild))
-        rainyMild = rainyMildList[-1]
-        ItemProbability.objects.bulk_update(rainyMildList[:-1], ['rainyMild'])
-        
-        rainyColdList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('rainyCold', flat=True)).append(rainyCold))
-        rainyCold = rainyColdList[-1]
-        ItemProbability.objects.bulk_update(rainyColdList[:-1], ['rainyCold'])
-        
-        snowyHotList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('snowyHot', flat=True)).append(snowyHot))
-        snowyHot = snowyHotList[-1]
-        ItemProbability.objects.bulk_update(snowyHotList[:-1], ['snowyHot'])
-        
-        snowyMildList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('snowyMild', flat=True)).append(snowyMild))
-        snowyMild = snowyMildList[-1]
-        ItemProbability.objects.bulk_update(snowyMildList[:-1], ['snowyMild'])
-        
-        snowyColdList = ai_model.normalize_percentages(list(ItemProbability.objects.values_list('snowyCold', flat=True)).append(snowyCold))
-        snowyCold = snowyColdList[-1]
-        ItemProbability.objects.bulk_update(snowyColdList[:-1], ['snowyCold'])
-        
-        ItemProbability.objects.create(outfitItem=serializer.data.id,
-                                       sunnyHot=sunnyHot,
-                                       sunnyMild=sunnyMild,
-                                       sunnyCold=sunnyCold,
-                                       overcastHot=overcastHot,
-                                       overcastMild=overcastMild,
-                                       overcastCold=overcastCold,
-                                       rainyHot=rainyHot,
-                                       rainyMild=rainyMild,
-                                       rainyCold=rainyCold,
-                                       snowyHot=snowyHot,
-                                       snowyMild=snowyMild,
-                                       snowyCold=snowyCold)
+        ItemProbability.objects.create(
+            outfitItem=OutfitItem.objects.filter(id=serializer.data['id']).first(), 
+            sunnyHot=sunnyHot,
+            sunnyMild=sunnyMild,
+            sunnyCold=sunnyCold,
+            overcastHot=overcastHot,
+            overcastMild=overcastMild,
+            overcastCold=overcastCold,
+            rainyHot=rainyHot,
+            rainyMild=rainyMild,
+            rainyCold=rainyCold,
+            snowyHot=snowyHot,
+            snowyMild=snowyMild,
+            snowyCold=snowyCold
+        )
         
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -182,8 +136,37 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def get_recommendations(self, request):
+        topwear = OutfitItem.objects.all().filter(category='topwear')
+        bottomwear = OutfitItem.objects.all().filter(category='bottomwear')
+        footwear = OutfitItem.objects.all().filter(category='footwear')
         
-        pass
+        weather = request.query_params['weather']
+        temperature = request.query_params['temperature']
+        
+        def probabilitiesNormalization(weatherAndTemperatureName):
+            weatherAndTemperatureList = list(ItemProbability.objects.values_list(weatherAndTemperatureName, flat=True))
+            normalizedList = ai_model.normalize_percentages(weatherAndTemperatureList)
+            return normalizedList
+
+        recommendations = []
+ 
+        topwearProbabilities = []
+        for item in topwear:
+            probabilitiesNormalization(weatherAndTemperatureName=weather + temperature)
+            topwearProbabilities.append(ItemProbability.objects.filter(outfitItem=item.id)[weather + temperature] * 1 / len(topwear) * 1 / 12)
+        recommendations.append(topwear[topwearProbabilities.index(max(topwearProbabilities))])
+        
+        bottomwearProbabilities = []
+        for item in bottomwear:
+            bottomwearProbabilities.append(ItemProbability.objects.filter(outfitItem=item.id)[weather + temperature] * 1 / len(bottomwear) * 1 / 12)
+        recommendations.append(bottomwear[bottomwearProbabilities.index(max(bottomwearProbabilities))])
+            
+        footwearProbabilities = []
+        for item in footwear:
+            footwearProbabilities.append(ItemProbability.objects.filter(outfitItem=item.id)[weather + temperature] * 1 / len(footwear) * 1 / 12)
+        recommendations.append(footwear[footwearProbabilities.index(max(footwearProbabilities))])
+        
+        return Response(data=recommendations, status=status.HTTP_200_OK)
 
 class WardrobeViewSet(viewsets.ModelViewSet):
     """
