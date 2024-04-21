@@ -160,8 +160,11 @@ def calc_mean(temperature_probability, weather_prob):
 
 def normalize_percentages(percentages):
         total_sum = sum(percentages)
-        normalization_factor = 100 / total_sum
-        normalized_percentages = [round(p * normalization_factor, 2) for p in percentages]
+        if total_sum == 0:
+            normalized_percentages = [round(100 / len(percentages), 2) for _ in percentages]
+        else:
+            normalization_factor = 100 / total_sum
+            normalized_percentages = [round(p * normalization_factor, 2) for p in percentages]
         
         while sum(normalized_percentages) != 100:
             for i in range(len(normalized_percentages)):
@@ -178,51 +181,3 @@ def normalize_percentages(percentages):
         
         return normalized_percentages
 
-# def get_outfit_recommendation(likelihoods):
-#     for item in items:
-#         p_item = len([i for i in items if i == p_item]) / len(items)
-#         p_weather = len([i for i in p_weathers if i == p_weathers]) / len(p_weathers)
-#         calculate_posterior(p_item, likelihood, p_weather)
-
-# def calculate_posterior(prior, likelihood, evidence):
-#     """
-#     Calculate the posterior probability using Bayes' Theorem.
-
-#     :param prior: Prior probability of the hypothesis (P(H)).
-#     :param likelihood: Probability of the evidence given the hypothesis (P(E|H)).
-#     :param evidence: Total probability of the evidence (P(E)).
-#     :return: Posterior probability (P(H|E)).
-#     """
-#     return (likelihood * prior) / evidence
-
-# # Define the probabilities
-# # Priors (Assuming equal probability for demonstration)
-# priors = {'Cold and Snowy': 0.5, 'Hot and Sunny': 0.5}
-
-# # Likelihoods
-# likelihoods = {
-#     'Coat': {'Cold and Snowy': 0.95, 'Hot and Sunny': 0.05},
-#     'Shorts': {'Cold and Snowy': 0.05, 'Hot and Sunny': 0.95}
-# }
-
-# # Evidence (calculated as the sum of the product of prior and likelihood for each hypothesis)
-# evidence = {
-#     scenario: sum(priors[hypothesis] * likelihoods[clothing_item][hypothesis] 
-#                   for hypothesis in priors for clothing_item in likelihoods)
-#     for scenario in priors
-# }
-
-# # Calculate posterior probabilities for each clothing item in each scenario
-# posterior_probabilities = {
-#     clothing_item: {
-#         scenario: calculate_posterior(priors[scenario], likelihoods[clothing_item][scenario], evidence[scenario])
-#         for scenario in priors
-#     } for clothing_item in likelihoods
-# }
-
-# # Output the calculated posterior probabilities
-# for clothing_item in posterior_probabilities:
-#     for scenario in posterior_probabilities[clothing_item]:
-#         print(f"P({clothing_item}|{scenario}) = {posterior_probabilities[clothing_item][scenario]:.2f}")
-
-    

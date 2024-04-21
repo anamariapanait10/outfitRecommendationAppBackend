@@ -1,3 +1,4 @@
+import base64
 from django.contrib.auth.models import User
 from app.models import ItemProbability, OutfitItem, Wardrobe
 from rest_framework import permissions, serializers, viewsets, status
@@ -134,6 +135,11 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         print(f"json = {json}")
         return Response(data=json, status=status.HTTP_200_OK)
     
+    def load_img_base64(self, path):
+        with open(path, "rb") as f:
+            encoded_image = base64.b64encode(f.read())
+        return encoded_image
+        
     @action(detail=False, methods=['get'])
     def get_recommendations(self, request):
         topwear = OutfitItem.objects.all().filter(category='topwear')
@@ -142,30 +148,81 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         
         weather = request.query_params['weather']
         temperature = request.query_params['temperature']
+        print(f"weather {weather}")
+        print(f"temperature {temperature}")
         
-        def probabilitiesNormalization(weatherAndTemperatureName):
-            weatherAndTemperatureList = list(ItemProbability.objects.values_list(weatherAndTemperatureName, flat=True))
-            normalizedList = ai_model.normalize_percentages(weatherAndTemperatureList)
-            return normalizedList
-
         recommendations = []
- 
-        topwearProbabilities = []
-        for item in topwear:
-            probabilitiesNormalization(weatherAndTemperatureName=weather + temperature)
-            topwearProbabilities.append(ItemProbability.objects.filter(outfitItem=item.id)[weather + temperature] * 1 / len(topwear) * 1 / 12)
-        recommendations.append(topwear[topwearProbabilities.index(max(topwearProbabilities))])
+
+        if len(topwear) > 0:
+            print("topwear")
+            topwearPercentages = []
+            for item in topwear:
+                topwearPercentages.append(float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)))
+            print("topwear probs before normalization ", topwearPercentages)
+            topwearPercentages = ai_model.normalize_percentages(topwearPercentages)
+            print("topwear probs after normalization ", topwearPercentages)
+            print("p / 100 ", [p / 100 for p in topwearPercentages])
+            topwearProbabilities = []
+            for percentage in topwearPercentages:
+                likelihood = percentage / 100.0
+                prior = 1.0 / len(topwear)
+                marginal = likelihood * prior + (1-likelihood) * (1-prior)
+                posterior = likelihood * prior / marginal
+                print(f"prior {prior}, marginal {marginal}, posterior {posterior}")
+                topwearProbabilities.append(posterior)
+            print("topwear prob ", topwearProbabilities)
+            selected_topwear = topwear[topwearPercentages.index(max(topwearPercentages))]
+            recommendations.append({ "id": selected_topwear.id, "image": selected_topwear.image})
+        else:
+            recommendations.append({"id": -1, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
+
+        if len(bottomwear) > 0:
+            print("bottomwear")
+            bottomwearPercentages = []
+            for item in bottomwear:
+                bottomwearPercentages.append(float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)))
+            print("bottomwear probs before normalization ", bottomwearPercentages)
+            bottomwearPercentages = ai_model.normalize_percentages(bottomwearPercentages)
+            print("bottomwear prob after normalization", bottomwearPercentages)
+            print("p / 100 ", [p / 100 for p in bottomwearPercentages])
+            bottomwearProbabilities = []
+            for percentage in bottomwearPercentages:
+                likelihood = percentage / 100.0
+                prior = 1.0 / len(bottomwear)
+                marginal = likelihood * prior + (1-likelihood) * (1-prior)
+                posterior = likelihood * prior / marginal
+                print(f"prior {prior}, marginal {marginal}, posterior {posterior}")
+                bottomwearProbabilities.append(posterior)
+            print("bottomwear prob ", bottomwearProbabilities)
+            selected_bottomwear = bottomwear[bottomwearProbabilities.index(max(bottomwearProbabilities))]
+            print(selected_bottomwear.image[:30])
+            recommendations.append({ "id": selected_bottomwear.id, "image": selected_bottomwear.image})
+        else:
+            recommendations.append({"id": -2, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
         
-        bottomwearProbabilities = []
-        for item in bottomwear:
-            bottomwearProbabilities.append(ItemProbability.objects.filter(outfitItem=item.id)[weather + temperature] * 1 / len(bottomwear) * 1 / 12)
-        recommendations.append(bottomwear[bottomwearProbabilities.index(max(bottomwearProbabilities))])
-            
-        footwearProbabilities = []
-        for item in footwear:
-            footwearProbabilities.append(ItemProbability.objects.filter(outfitItem=item.id)[weather + temperature] * 1 / len(footwear) * 1 / 12)
-        recommendations.append(footwear[footwearProbabilities.index(max(footwearProbabilities))])
-        
+        if len(footwear) > 0:
+            print("footwear")
+            footwearPercentages = []
+            for item in footwear:
+                footwearPercentages.append(float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)))
+            print("footwear probs before normalization ", footwearPercentages)
+            footwearPercentages = ai_model.normalize_percentages(footwearPercentages)
+            print("footwear probs after normalization ", footwearPercentages)
+            print("p / 100 ", [p / 100 for p in footwearPercentages])
+            footwearProbabilities = []
+            for percentage in bottomwearPercentages:
+                likelihood = percentage / 100.0
+                prior = 1.0 / len(footwear)
+                marginal = likelihood * prior + (1-likelihood) * (1-prior)
+                posterior = likelihood * prior / marginal
+                print(f"prior {prior}, marginal {marginal}, posterior {posterior}")
+                footwearProbabilities.append(posterior)
+            print("footwear prob ", footwearProbabilities)
+            selected_footwear = footwear[footwearPercentages.index(max(footwearPercentages))]
+            recommendations.append({ "id": selected_footwear.id, "image": selected_footwear.image})
+        else:
+            recommendations.append({"id": -3, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
+
         return Response(data=recommendations, status=status.HTTP_200_OK)
 
 class WardrobeViewSet(viewsets.ModelViewSet):

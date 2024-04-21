@@ -200,5 +200,3 @@ def color_classification_b64(b64_image):
     category = color_to_category_mapping.get(get_cloth_color(image), "No category found")
     return category
 
-
-# print(color_classification('/home/alex/PycharmProjects/cloth-classification-test/fashion-dataset/images/portocaliu.jpeg'))
