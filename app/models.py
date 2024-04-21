@@ -40,3 +40,11 @@ class ItemProbability(models.Model):
 #     wardrobe = models.OneToOneField(Wardrobe, on_delete=models.CASCADE)
 #     worn_clothes_percentage = models.FloatField()
 #     worn_outfits_percentage = models.FloatField()
+    
+class WornOutfits(models.Model):
+    date = models.CharField(primary_key=True, max_length=12)
+    user_id = models.CharField(max_length=255)
+    top = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='top')
+    bottom = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='bottom')
+    shoes = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='shoes')
+

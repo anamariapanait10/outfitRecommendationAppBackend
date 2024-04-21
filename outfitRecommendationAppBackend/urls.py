@@ -23,6 +23,7 @@ router = routers.DefaultRouter()
 router.register(r"users", views.UserViewSet)
 router.register(r"outfit-items", views.OutfitItemViewSet)
 router.register(r"wardrobes", views.WardrobeViewSet)
+router.register(r"worn-outfits", views.WornOutfitsViewSet)
 # router.register(r"classification", views.ClassificationViewSet)
 
 urlpatterns = [
