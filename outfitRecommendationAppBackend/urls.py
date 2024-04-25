@@ -24,8 +24,8 @@ router.register(r"users", views.UserViewSet)
 router.register(r"outfit-items", views.OutfitItemViewSet)
 router.register(r"wardrobes", views.WardrobeViewSet)
 router.register(r"worn-outfits", views.WornOutfitsViewSet)
-# router.register(r"classification", views.ClassificationViewSet)
-
+router.register(r"ai-expert", views.AiExpertViewSet, basename='ai-expert') 
+ 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),

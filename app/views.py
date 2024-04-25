@@ -6,6 +6,10 @@ from rest_framework import permissions, serializers, viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 import clothesFeatureExtraction.clothes_recognition_module as ai_model
+from openai import OpenAI
+import json
+
+client = OpenAI()
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -136,11 +140,35 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def classify(self, request):
-        category = ai_model.classify_category_from_b64(request.data['image'])
-        subcategory = ai_model.classify_subcategory_from_b64(request.data['image'], category)
-        color = ai_model.classify_color_from_b64(request.data['image'])
-        season = ai_model.classify_season_from_b64(request.data['image'])
-        usage = ai_model.classify_usage_from_b64(request.data['image'])
+        # category_mappings = {'Upper body clothes': 'Topwear', 'Lower body clothes': 'Bottomwear', 'Shoes': 'Footwear', 'Full body clothes': 'Bodywear', 'Head clothes': 'Headwear', 'Accessory': 'Accessories'}
+        # # category = ai_model.classify_category_from_b64(request.data['image'])
+        # category = category_mappings[ai_model.use_clip(['Upper body clothes', 'Lower body clothes', 'Shoes', 'Full body clothes', 'Head clothes', 'Accessory'], request.data['image'])]
+        
+        # subcategory = ai_model.classify_subcategory_from_b64(request.data['image'], category)
+        # color = ai_model.classify_color_from_b64(request.data['image'])
+        color  = ai_model.use_clip([
+            'white', 'beige', 'black', 
+            'light gray', 'gray', 'dark gray', 
+            'yellow',  'dark yellow',  
+            'light green', 'green', 'dark green', 
+            'turquoise',  'orange',
+            'light blue', 'blue', 'dark blue',  
+            'light pink', 'pink', 'red',
+            'dark red', 'brown', 'purple', 'multicolor'
+        ], request.data['image'])
+        # season = ai_model.classify_season_from_b64(request.data['image'])
+        # usage = ai_model.classify_usage_from_b64(request.data['image'])
+        subcategory = ai_model.use_clip(['Shirt', 'Tshirt', 'Sweater', 'Jacket', 'Jeans', 'Track Pants', 'Shorts', 'Skirt',
+                                          'Trousers', 'Leggings', 'Casual Shoes', 'Flip Flops', 'Sandals', 'Formal Shoes', 'Flats', 
+                                          'Sports Shoes', 'Heels', 'Tie', 'Watch', 'Belt', 'Jewelry'], request.data['image'])
+        subcategory_mappings = { 'Shirt': 'Topwear', 'Tshirt': 'Topwear', 'Sweater': 'Topwear' , 'Jacket': 'Topwear', 'Jeans': 'Bottomwear', 'Track Pants': 'Bottomwear', 'Shorts': 'Bottomwear', 'Skirt': 'Bottomwear',
+                                          'Trousers': 'Bottomwear', 'Leggings': 'Bottomwear', 'Casual Shoes': 'Footwear', 'Flip Flops': 'Footwear', 'Sandals': 'Footwear', 'Formal Shoes': 'Footwear', 'Flats': 'Footwear',
+                                          'Sports Shoes': 'Footwear', 'Heels': 'Footwear', 'Tie': 'Accessories', 'Watch': 'Accessories', 'Belt': 'Accessories', 'Jewelry': 'Accessories' }
+        category = subcategory_mappings[subcategory]
+        season = ai_model.use_clip(['Spring clothes', 'Summer clothes', 'Autumn clothes', 'Winter clothes'], request.data['image'])
+        usage = ai_model.use_clip(['Casual clothes', 'Ethnic clothes', 'Formal clothes', 'Sports clothes', 'Smart casual clothes', 'Party clothes'],  request.data['image'])
+        season = season[:season.find(' clothes')]
+        usage = usage[:usage.find(' clothes')]
         json = {"category": category, "subcategory": subcategory, "color": color, "season": season, "occasions": usage}
         print(f"json = {json}")
         return Response(data=json, status=status.HTTP_200_OK)
@@ -258,10 +286,6 @@ class WardrobeViewSet(viewsets.ModelViewSet):
     #     headers = self.get_success_headers(serializer.data)
     #     return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
     
-class ClassificationViewSet(viewsets.ViewSet):
-    @action(detail=False, methods=['get'])
-    def classify(self, request):
-        return Response('Hello World')
     
 
 class WornOutfitsViewSet(viewsets.ViewSet):
@@ -291,3 +315,64 @@ class WornOutfitsViewSet(viewsets.ViewSet):
         WornOutfits.objects.create(date=date, user=request.user, top=top, bottom=bottom, shoes=shoes)
 
         return Response(status=status.HTTP_200_OK)
+    
+class AiExpertViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def ask(self, request):
+        topwear_image = request.data['topwear']['image']
+        bottomwear_image = request.data['bottomwear']['image']
+        footwear_image = request.data['footwear']['image']
+        event = request.data['event']
+        if topwear_image == None or bottomwear_image == None or footwear_image == None:
+            return Response('Bad request', status=status.HTTP_400_BAD_REQUEST)
+        if not event:
+            prompt = "Here are images of the selected outfit. Based on their style, color, material, and overall appearance, can these clothes be combined and look great? Return in JSON with decision and reason. Keep the reason shorter than 140 tokens"
+        else:
+            prompt = f"Here are images of the selected outfit. Based on their style, color, material, overall appearance and the suitability for a {event.lower()} occasion, can these clothes be combined and look great? Return in JSON with decision and reason. Keep the reason shorter than 140 tokens"
+        response = client.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[
+                {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": topwear_image,
+                            "detail": "low"
+                        },
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": bottomwear_image,
+                            "detail": "low"
+                        },
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url":footwear_image,
+                            "detail": "low"
+                        },
+                    },
+                ],
+                }
+            ],
+            max_tokens=150,
+        )
+
+        # try:
+        #     with open('raspuns.json', 'r') as f:
+        #         # f.write(response.choices[0].message.content)
+        #         response = f.read()
+        #         f.close()
+        # except Exception as e:
+        #     print(e)
+        # response = response.choices[0].message.content
+        response = json.loads(response.replace('```json', '').replace('```', ''))
+        # print(response)
+        return Response(response)

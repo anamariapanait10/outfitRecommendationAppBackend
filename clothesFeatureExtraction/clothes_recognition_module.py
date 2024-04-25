@@ -2,6 +2,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+import torch
+import clip
+from io import BytesIO
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 from sklearn.naive_bayes import GaussianNB
@@ -35,6 +38,8 @@ from clothesFeatureExtraction.bottomwear_model import BottomwearModel
 from clothesFeatureExtraction.footwear_model import FootwearModel
 from clothesFeatureExtraction.bodywear_model import BodywearModel
 
+clip_device = "cuda" if torch.cuda.is_available() else "cpu"
+clip_model, clip_preprocess = clip.load("ViT-B/32", device=clip_device)
 
 def classify_cloth_image(image_path):
     img = cv2.imread(image_path)
@@ -181,3 +186,18 @@ def normalize_percentages(percentages):
         
         return normalized_percentages
 
+
+def use_clip(labels, image_b64):
+    image_data = base64.b64decode(image_b64[image_b64.find(','):])
+    image = clip_preprocess(Image.open(BytesIO(image_data))).unsqueeze(0).to(clip_device)
+    text = clip.tokenize(labels).to(clip_device)
+    with torch.no_grad():
+        image_features = clip_model.encode_image(image)
+        text_features = clip_model.encode_text(text)
+        
+        logits_per_image, logits_per_text = clip_model(image, text)
+        probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+
+    print(probs)
+    return labels[np.argmax(probs)]
+    
