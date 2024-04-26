@@ -48,3 +48,20 @@ class WornOutfits(models.Model):
     bottom = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='bottom')
     shoes = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='shoes')
 
+
+class MarketplaceItems(models.Model):
+    id = models.AutoField(primary_key=True)
+    user_id = models.CharField(max_length=255)
+    outfit = models.ForeignKey(OutfitItem, on_delete=models.CASCADE)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=30)
+    images = models.TextField(blank=True, null=True)
+    condition = models.CharField(max_length=30)
+    size = models.CharField(max_length=30)
+    brand = models.CharField(max_length=30)
+    posted_date = models.DateTimeField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    location = models.CharField(max_length=30)
+    
+    def __str__(self):
+        return self.id
