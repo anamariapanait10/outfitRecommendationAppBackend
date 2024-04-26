@@ -9,6 +9,8 @@ from webcolors import (
    CSS3_HEX_TO_NAMES,
     hex_to_rgb
 )
+import rembg
+import math
 
 # Expanded mapping for CSS color names to broader categories
 color_to_category_mapping = {
@@ -30,7 +32,7 @@ color_to_category_mapping = {
     'chocolate': 'orange',
     'coral': 'orange',
     'cornflowerblue': 'light-blue',
-    'cornsilk': 'light-gray',
+    'cornsilk': 'beige',
     'crimson': 'dark-red',
     'cyan': 'turquoise',
     'darkblue': 'blue',
@@ -80,7 +82,7 @@ color_to_category_mapping = {
     'lightcyan': 'light-blue',
     'lightgoldenrodyellow': 'beige',
     'lightgreen': 'light-green',
-    'lightgrey': 'light-gray',
+    'lightgray': 'light-gray',
     'lightpink': 'pink',
     'lightsalmon': 'orange',
     'lightseagreen': 'turquoise',
@@ -152,6 +154,7 @@ color_to_category_mapping = {
     'whitesmoke': 'white',
     'yellow': 'yellow',
     'yellowgreen': 'light-green',
+    'multicolor': 'multicolor'
 }
 
 def convert_rgb_to_names(rgb_tuple):
@@ -168,22 +171,60 @@ def convert_rgb_to_names(rgb_tuple):
     return names[index]
 
 
-def get_cloth_color(image):
-    max_score = 0.0001
-    dominant_color = None
-    for count,(r,g,b) in image.getcolors(image.size[0]*image.size[1]):
+# def get_cloth_color(image):
+#     max_score = 0.0001
+#     dominant_color = None
+#     for count,(r,g,b) in image.getcolors(image.size[0]*image.size[1]):
        
-        saturation = colorsys.rgb_to_hsv(r/255.0, g/255.0, b/255.0)[1]
-        y = min(abs(r*2104+g*4130+b*802+4096+131072)>>13,235)
-        y = (y-16.0)/(235-16)
-        if y > 0.9:
-            continue
-        score = (saturation+0.1)*count
-        if score > max_score:
-            max_score = score
-            dominant_color = (r,g,b)
+#         saturation = colorsys.rgb_to_hsv(r/255.0, g/255.0, b/255.0)[1]
+#         y = min(abs(r*2104+g*4130+b*802+4096+131072)>>13,235)
+#         y = (y-16.0)/(235-16)
+#         if y > 0.9:
+#             continue
+#         score = (saturation+0.1)*count
+#         if score > max_score:
+#             max_score = score
+#             dominant_color = (r,g,b)
             
-    return convert_rgb_to_names(dominant_color)
+#     return convert_rgb_to_names(dominant_color)
+
+def rgb_distance(color1, color2):
+    R1, G1, B1 = color1
+    R2, G2, B2 = color2
+    distance = math.sqrt((R2 - R1) ** 2 + (G2 - G1) ** 2 + (B2 - B1) ** 2)
+    return distance
+
+def get_cloth_color(image):
+    top_colors = []
+    
+    for count, (r, g, b, a) in image.getcolors(image.size[0] * image.size[1]):
+        if a < 40:
+            continue
+        saturation = colorsys.rgb_to_hsv(r/255.0, g/255.0, b/255.0)[1]
+        y = min(abs(r*2104 + g*4130 + b*802 + 4096 + 131072) >> 13, 235)
+        y = (y - 16.0) / (235 - 16)
+        
+        # if y > 0.9:
+        #     continue
+        
+        score = (saturation + 0.1) * count
+        
+        if (len(top_colors) < 3 or score > top_colors[-1][0]) and score > 10:
+            ok = True
+            for c in top_colors:
+                if rgb_distance(c[1], (r, g, b)) < 100:
+                    ok = False
+                    break
+            if ok:
+                top_colors.append((score, (r, g, b)))
+                top_colors = sorted(top_colors, reverse=True, key=lambda x: x[0])[:3]
+
+    print(top_colors)
+    if abs(top_colors[0][0] - top_colors[1][0]) < 150 and abs(top_colors[1][0] - top_colors[2][0]) < 150:
+        return 'multicolor'
+    color_names = [convert_rgb_to_names(color[1]) for color in top_colors]
+    
+    return color_names[1]
  
     
 def color_classification(single_path):
@@ -194,9 +235,18 @@ def color_classification(single_path):
 
 def color_classification_b64(b64_image):
     b64_image = re.sub('^data:image/.+;base64,', '', b64_image)
-    image = Image.open(BytesIO(base64.b64decode(b64_image)))
+    image_bytes = base64.b64decode(b64_image)
     
-    image = image.convert('RGB')
-    category = color_to_category_mapping.get(get_cloth_color(image), "No category found")
+    image_bytes = rembg.remove(image_bytes)
+    image = Image.open(BytesIO(image_bytes))
+    image = image.convert('RGBA')
+    image = image.quantize(colors=140, method=2)
+    image = image.convert('RGBA')
+    # image.show()
+    color_output = get_cloth_color(image)
+    print('before mapping ' + color_output)
+    category = color_to_category_mapping.get(color_output, "No category found")
+    if category == "No category found":
+        print('The outputed color was not found: ' + color_output)
     return category
 
