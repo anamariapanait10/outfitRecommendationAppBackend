@@ -162,6 +162,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
             'light pink', 'pink', 'red',
             'dark red', 'brown', 'purple', 'multicolor'
         ], request.data['image'])
+        print(f"color = {color}")
         # season = ai_model.classify_season_from_b64(request.data['image'])
         # usage = ai_model.classify_usage_from_b64(request.data['image'])
         subcategory = ai_model.use_clip(['Shirt', 'Tshirt', 'Sweater', 'Jacket', 'Jeans', 'Track Pants', 'Shorts', 'Skirt',
