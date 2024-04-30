@@ -54,6 +54,7 @@ class JWTAuthenticationMiddleware(BaseAuthentication):
                 public_key,
                 algorithms=["RS256"],
                 options={"verify_signature": True},
+                leeway=60
             )
         except jwt.ExpiredSignatureError as e:
             print('%s' % type(e))
@@ -62,7 +63,7 @@ class JWTAuthenticationMiddleware(BaseAuthentication):
             print('%s' % type(e))
             raise AuthenticationFailed("Token decode error.")
         except jwt.InvalidTokenError as e:
-            print('%s' % type(e))
+            print('%s' % e)
             raise AuthenticationFailed("Invalid token.")
 
         user_id = payload.get("sub")

@@ -37,6 +37,7 @@ from clothesFeatureExtraction.topwear_model import TopwearModel
 from clothesFeatureExtraction.bottomwear_model import BottomwearModel
 from clothesFeatureExtraction.footwear_model import FootwearModel
 from clothesFeatureExtraction.bodywear_model import BodywearModel
+from clothesFeatureExtraction.similarity import Similarity
 
 clip_device = "cuda" if torch.cuda.is_available() else "cpu"
 clip_model, clip_preprocess = clip.load("ViT-B/32", device=clip_device)
@@ -200,4 +201,7 @@ def use_clip(labels, image_b64):
 
     print(probs)
     return labels[np.argmax(probs)]
+
+def calculate_similarity(item, all_items):
+    return Similarity().get_top_similar_items(item, all_items)
     

@@ -217,7 +217,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
                 topwearProbabilities.append(posterior)
             print("topwear prob ", topwearProbabilities)
             selected_topwear = topwear[topwearPercentages.index(max(topwearPercentages))]
-            recommendations.append({ "id": selected_topwear.id, "image": selected_topwear.image})
+            recommendations.append({ "id": selected_topwear.id, "image": selected_topwear.image, "category": selected_topwear.category })
         else:
             recommendations.append({"id": -1, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
 
@@ -241,7 +241,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
             print("bottomwear prob ", bottomwearProbabilities)
             selected_bottomwear = bottomwear[bottomwearProbabilities.index(max(bottomwearProbabilities))]
             print(selected_bottomwear.image[:30])
-            recommendations.append({ "id": selected_bottomwear.id, "image": selected_bottomwear.image})
+            recommendations.append({ "id": selected_bottomwear.id, "image": selected_bottomwear.image, "category": selected_bottomwear.category})
         else:
             recommendations.append({"id": -2, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
         
@@ -264,7 +264,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
                 footwearProbabilities.append(posterior)
             print("footwear prob ", footwearProbabilities)
             selected_footwear = footwear[footwearPercentages.index(max(footwearPercentages))]
-            recommendations.append({ "id": selected_footwear.id, "image": selected_footwear.image})
+            recommendations.append({ "id": selected_footwear.id, "image": selected_footwear.image, "category": selected_footwear.category})
         else:
             recommendations.append({"id": -3, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
 
@@ -298,13 +298,18 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
     def wear(self, request):
         outfitItems = request.data['outfit']
         date = request.data['date']
+        first = OutfitItem.objects.filter(id=outfitItems[0]['id']).first()
+        second = OutfitItem.objects.filter(id=outfitItems[1]['id']).first()
+        third = OutfitItem.objects.filter(id=outfitItems[2]['id']).first()
+        outfitItems = [first, second, third]
+        
         top = next((obj for obj in outfitItems if obj.category == "Topwear"), None)
         bottom = next((obj for obj in outfitItems if obj.category == "Bottomwear"), None)
-        shoes = next((obj for obj in outfitItems if obj.category == "Shoes"), None)
+        shoes = next((obj for obj in outfitItems if obj.category == "Footwear"), None)
 
-        WornOutfits.objects.create(date=date, user=request.user, top=top, bottom=bottom, shoes=shoes)
+        WornOutfits.objects.create(date=date, user_id=request.user, top=top, bottom=bottom, shoes=shoes)
 
-        return Response(status=status.HTTP_200_OK)
+        return Response(data="{}", status=status.HTTP_200_OK)
     
 class MarketplaceItemsViewSet(viewsets.ModelViewSet):
     queryset = MarketplaceItems.objects.all()
@@ -321,6 +326,20 @@ class MarketplaceItemsViewSet(viewsets.ModelViewSet):
             result.append(serializer.data)
 
         return Response(result)
+    
+    @action(detail=False, methods=['get'])
+    def similarity(self, request):
+        marketplace_item_id = request.query_params['marketplaceItemId']
+        marketplace_item = MarketplaceItems.objects.prefetch_related('outfit').filter(id=marketplace_item_id).first()
+        marketplace_items = MarketplaceItems.objects.prefetch_related('outfit').exclude(id=marketplace_item_id)
+        similarity = ai_model.calculate_similarity(marketplace_item, marketplace_items)
+        
+        result = []
+        for item in similarity:
+            serializer = MarketplaceItemsSerializer(item)
+            result.append(serializer.data)
+        
+        return Response(data=result, status=status.HTTP_200_OK)
 
 class AiExpertViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
@@ -378,7 +397,7 @@ class AiExpertViewSet(viewsets.ViewSet):
         #         f.close()
         # except Exception as e:
         #     print(e)
-        # response = response.choices[0].message.content
+        response = response.choices[0].message.content
         response = json.loads(response.replace('```json', '').replace('```', ''))
         # print(response)
         return Response(response)
