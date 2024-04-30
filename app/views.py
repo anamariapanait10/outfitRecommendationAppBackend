@@ -39,8 +39,22 @@ class ItemProbabilitySerializer(serializers.ModelSerializer):
         model = ItemProbability
         fields = '__all__'
         
-class MarketplaceItemsSerializer(serializers.ModelSerializer):
-    outfit = OutfitItemSerializer()
+# class MarketplaceItemsSerializer(serializers.ModelSerializer):
+#     # outfit = OutfitItemSerializer()
+#     class Meta:
+#         model = MarketplaceItems
+#         fields = '__all__'
+
+class MarketplaceItemReadSerializer(serializers.ModelSerializer):
+    outfit = OutfitItemSerializer(read_only=True)
+
+    class Meta:
+        model = MarketplaceItems
+        fields = '__all__'
+
+class MarketplaceItemWriteSerializer(serializers.ModelSerializer):
+    outfit = serializers.PrimaryKeyRelatedField(queryset=OutfitItem.objects.all())
+
     class Meta:
         model = MarketplaceItems
         fields = '__all__'
@@ -313,8 +327,12 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
     
 class MarketplaceItemsViewSet(viewsets.ModelViewSet):
     queryset = MarketplaceItems.objects.all()
-    serializer_class = MarketplaceItemsSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return MarketplaceItemReadSerializer
+        return MarketplaceItemWriteSerializer
     
     @action(detail=False, methods=['get'])
     def get_available_items_for_user(self, request):
@@ -322,7 +340,7 @@ class MarketplaceItemsViewSet(viewsets.ModelViewSet):
         availableItems = MarketplaceItems.objects.prefetch_related('outfit').filter(user_id=user)
         result = []
         for item in availableItems:
-            serializer = MarketplaceItemsSerializer(item)
+            serializer = MarketplaceItemReadSerializer(item)
             result.append(serializer.data)
 
         return Response(result)
@@ -336,7 +354,7 @@ class MarketplaceItemsViewSet(viewsets.ModelViewSet):
         
         result = []
         for item in similarity:
-            serializer = MarketplaceItemsSerializer(item)
+            serializer = MarketplaceItemReadSerializer(item)
             result.append(serializer.data)
         
         return Response(data=result, status=status.HTTP_200_OK)

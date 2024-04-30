@@ -51,8 +51,8 @@ class WornOutfits(models.Model):
 
 class MarketplaceItems(models.Model):
     id = models.AutoField(primary_key=True)
-    # user_id = models.CharField(max_length=255)
-    # outfit = models.ForeignKey(OutfitItem, on_delete=models.CASCADE)
+    user_id = models.CharField(max_length=255)
+    outfit = models.ForeignKey(OutfitItem, on_delete=models.CASCADE)
     description = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=30, null=True, blank=True)
     images = models.TextField(blank=True, null=True)
