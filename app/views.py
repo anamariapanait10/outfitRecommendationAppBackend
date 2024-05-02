@@ -38,7 +38,7 @@ class WornOutfitsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WornOutfits
-        fields = ['date', 'user_id', 'top', 'bottom', 'shoes']
+        fields = ['date', 'user', 'top', 'bottom', 'shoes']
         
 class ItemProbabilitySerializer(serializers.ModelSerializer):
     class Meta:
@@ -306,7 +306,7 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def get_for_year_month(self, request):
-        wornOutfits = WornOutfits.objects.prefetch_related('top', 'bottom', 'shoes').filter(user_id=request.user).filter(date__startswith=request.query_params['yearMonth'])
+        wornOutfits = WornOutfits.objects.prefetch_related('top', 'bottom', 'shoes').filter(user=request.user).filter(date__startswith=request.query_params['yearMonth'])
         result = {}
         for item in wornOutfits:
             serializer = WornOutfitsSerializer(item)
