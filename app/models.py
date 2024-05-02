@@ -36,14 +36,20 @@ class ItemProbability(models.Model):
     snowyCold = models.DecimalField(max_digits=5, decimal_places=2)
     
     
-# class Stats(models.Model):
-#     wardrobe = models.OneToOneField(Wardrobe, on_delete=models.CASCADE)
-#     worn_clothes_percentage = models.FloatField()
-#     worn_outfits_percentage = models.FloatField()
-    
+class Stats(models.Model):
+    wardrobe = models.OneToOneField(Wardrobe, on_delete=models.CASCADE)
+    season = models.CharField(max_length=30)
+    last_calculated = models.DateTimeField(auto_now=True)
+    worn_clothes_percentage = models.FloatField()
+    worn_outfits_percentage = models.FloatField()
+    worn_outfits = models.IntegerField()
+    total_outfits = models.IntegerField()
+    is_latest = models.BooleanField(default=False)
+
+
 class WornOutfits(models.Model):
     date = models.CharField(primary_key=True, max_length=12)
-    user_id = models.CharField(max_length=255)
+    user = models.CharField(max_length=255)
     top = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='top')
     bottom = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='bottom')
     shoes = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='shoes')
@@ -51,17 +57,17 @@ class WornOutfits(models.Model):
 
 class MarketplaceItems(models.Model):
     id = models.AutoField(primary_key=True)
-    user_id = models.CharField(max_length=255)
+    user_id = models.CharField(max_length=250)
     outfit = models.ForeignKey(OutfitItem, on_delete=models.CASCADE)
-    description = models.TextField(blank=True, null=True)
-    status = models.CharField(max_length=30, null=True, blank=True)
-    images = models.TextField(blank=True, null=True)
-    condition = models.CharField(max_length=30, null=True, blank=True)
-    size = models.CharField(max_length=30, null=True, blank=True)
-    brand = models.CharField(max_length=30, null=True, blank=True)
-    posted_date = models.DateTimeField(null=True, blank=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    location = models.CharField(max_length=30, null=True, blank=True)
-    
+    description = models.TextField()
+    status = models.CharField(max_length=30)
+    images = models.TextField(null=True, blank=True)
+    condition = models.CharField(max_length=30)
+    size = models.CharField(max_length=30)
+    brand = models.CharField(max_length=30)
+    posted_date = models.DateTimeField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    location = models.CharField(max_length=30)
+
     def __str__(self):
         return self.id

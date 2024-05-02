@@ -26,7 +26,8 @@ router.register(r"wardrobes", views.WardrobeViewSet)
 router.register(r"worn-outfits", views.WornOutfitsViewSet)
 router.register(r"marketplace-items", views.MarketplaceItemsViewSet)
 router.register(r"ai-expert", views.AiExpertViewSet, basename='ai-expert') 
- 
+router.register(r"stats", views.StatsViewSet)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),

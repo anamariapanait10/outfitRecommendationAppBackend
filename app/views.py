@@ -1,12 +1,13 @@
 import base64
 from django.contrib.auth.models import User
 from django.db.models import Prefetch
-from app.models import ItemProbability, MarketplaceItems, OutfitItem, Wardrobe, WornOutfits
+from app.models import ItemProbability, MarketplaceItems, OutfitItem, Wardrobe, WornOutfits, Stats
 from rest_framework import permissions, serializers, viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 import clothesFeatureExtraction.clothes_recognition_module as ai_model
 from openai import OpenAI
+from datetime import date
 import json
 
 client = OpenAI()
@@ -24,7 +25,12 @@ class WardrobeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wardrobe
         fields = '__all__'
-        
+
+class StatsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Stats
+        fields = '__all__'
+
 class WornOutfitsSerializer(serializers.ModelSerializer):
     top = OutfitItemSerializer()
     bottom = OutfitItemSerializer()
@@ -419,3 +425,78 @@ class AiExpertViewSet(viewsets.ViewSet):
         response = json.loads(response.replace('```json', '').replace('```', ''))
         # print(response)
         return Response(response)
+
+class StatsViewSet(viewsets.ModelViewSet):
+    queryset = Stats.objects.all()
+    serializer_class = StatsSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    @action(detail=False, methods=['post'])
+    def compute_wardrobe_usage(self, user):
+        print("Compute wardrobe usage")
+        latest = Stats.objects.filter(wardrobe__user_id=user).filter(is_latest=True).first()
+        print("Latest ", latest)
+        current_date = date.today()
+        if not latest or latest.last_calculated.month != current_date.month:
+            wardrobe = Wardrobe.objects.filter(user_id=user).first()
+            print("Wardrobe ", wardrobe)
+            month = current_date.month
+            if month in range(3, 6):
+                season = "Spring"
+                start_date = date(current_date.year, 3, 1)
+            elif month in range(6, 9):
+                season = "Summer"
+                start_date = date(current_date.year, 6, 1)
+            elif month in range(9, 12):
+                season = "Autumn"
+                start_date = date(current_date.year, 9, 1)
+            else:
+                season = "Winter"
+                start_date = date(current_date.year, 12, 1)
+            print("Season ", season)
+            print("Month ", month)
+            total_seasonal_items = OutfitItem.objects.filter(wardrobe=wardrobe, seasons__contains=season).count()
+            print("Total seasonal items ", total_seasonal_items)
+            if total_seasonal_items == 0:
+                return 0
+            # get the ids of the items that were worn in the current season and that are designated for the current season
+            worn_outfits_in_season = WornOutfits.objects.filter(user=user, date__gte=start_date)
+            print("Worn outfits in season ", worn_outfits_in_season)
+            worn_items_ids = []
+            for outfit in worn_outfits_in_season:
+                if season in outfit.top.seasons:
+                    worn_items_ids.append(outfit.top_id)
+                if season in outfit.bottom.seasons:
+                    worn_items_ids.append(outfit.bottom_id)
+                if season in outfit.shoes.seasons:
+                    worn_items_ids.append(outfit.shoes_id)
+            worn_items = len(list(set(worn_items_ids)))
+            print("Worn items ", worn_items)
+            worn_items_percentage = (worn_items / total_seasonal_items) * 100
+            print("Worn items percentage ", worn_items_percentage)
+            number_of_days_in_season = (current_date - start_date).days
+            print("Number of days in season ", number_of_days_in_season)
+            worn_outfits_percentage = (len(worn_outfits_in_season) / number_of_days_in_season) * 100
+            Stats.objects.create(wardrobe=wardrobe, worn_clothes_percentage=worn_items_percentage, worn_outfits_percentage=worn_outfits_percentage, worn_outfits=worn_outfits_in_season, total_outfits=number_of_days_in_season, is_latest=True, season=season)
+            if latest:
+                latest.is_latest = False
+                latest.save()
+            return season
+    
+    @action(detail=False, methods=['get'])
+    def get_stats(self, request):
+        print("Request ", request)
+        print("Query params ", request.query_params)
+        user = request.query_params['userId']
+        # get the latest stats for the user and if it is not for the current month, compute the stats
+        latest = Stats.objects.filter(wardrobe__user_id=user).filter(is_latest=True).first()
+        print("Latest ", latest)
+        if not latest or latest.last_calculated.month != date.today().month:
+            print("Compute stats")
+            self.compute_wardrobe_usage(user)
+            latest = Stats.objects.filter(wardrobe__user_id=user).filter(is_latest=True).first()
+            
+        return Response(data=StatsSerializer(latest).data, status=status.HTTP_200_OK)
+            
+        
+        
