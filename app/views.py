@@ -477,7 +477,7 @@ class StatsViewSet(viewsets.ModelViewSet):
             number_of_days_in_season = (current_date - start_date).days
             print("Number of days in season ", number_of_days_in_season)
             worn_outfits_percentage = (len(worn_outfits_in_season) / number_of_days_in_season) * 100
-            Stats.objects.create(wardrobe=wardrobe, worn_clothes_percentage=worn_items_percentage, worn_outfits_percentage=worn_outfits_percentage, worn_outfits=worn_outfits_in_season, total_outfits=number_of_days_in_season, is_latest=True, season=season)
+            Stats.objects.create(wardrobe=wardrobe, worn_clothes_percentage=worn_items_percentage, worn_outfits_percentage=worn_outfits_percentage, worn_outfits=worn_outfits_in_season.count(), total_outfits=number_of_days_in_season, is_latest=True, season=season)
             if latest:
                 latest.is_latest = False
                 latest.save()
