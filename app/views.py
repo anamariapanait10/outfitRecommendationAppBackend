@@ -327,7 +327,7 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
         bottom = next((obj for obj in outfitItems if obj.category == "Bottomwear"), None)
         shoes = next((obj for obj in outfitItems if obj.category == "Footwear"), None)
 
-        WornOutfits.objects.create(date=date, user_id=request.user, top=top, bottom=bottom, shoes=shoes)
+        WornOutfits.objects.create(date=date, user=request.user, top=top, bottom=bottom, shoes=shoes)
 
         return Response(data="{}", status=status.HTTP_200_OK)
     
