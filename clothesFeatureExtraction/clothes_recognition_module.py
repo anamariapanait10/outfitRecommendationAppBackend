@@ -158,6 +158,8 @@ def classify_usage_from_b64(b64_image_string):
     return classify_from_base64(b64_image_string, 'models/usage_classification.h5', usage_class_names)
 
 def calc_wear_probability(number, mu=10, sigma=5):
+    # scaling_factor = 1 / (np.sqrt(2 * np.pi * sigma ** 2))
+    # return scaling_factor * np.exp(-((number - mu) ** 2) / (2 * sigma ** 2))
     return np.exp(-((number - mu) ** 2) / (2 * sigma ** 2))
 
 def calc_mean(temperature_probability, weather_prob):

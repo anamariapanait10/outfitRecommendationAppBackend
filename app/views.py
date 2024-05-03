@@ -44,12 +44,6 @@ class ItemProbabilitySerializer(serializers.ModelSerializer):
     class Meta:
         model = ItemProbability
         fields = '__all__'
-        
-# class MarketplaceItemsSerializer(serializers.ModelSerializer):
-#     # outfit = OutfitItemSerializer()
-#     class Meta:
-#         model = MarketplaceItems
-#         fields = '__all__'
 
 class MarketplaceItemReadSerializer(serializers.ModelSerializer):
     outfit = OutfitItemSerializer(read_only=True)
@@ -86,27 +80,21 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         wardrobe_id = None
-        # check if the user already 
         if Wardrobe.objects.filter(user_id=request.user).exists():
             wardrobe_id = Wardrobe.objects.filter(user_id=request.user).first().id
         else:
-            print("This user does not have a wardrobe yet, so it will be created now.")
             wardrobe_id = Wardrobe.objects.create(user_id=request.user).id
 
         request.data['wardrobe'] = wardrobe_id
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
-            # Accessing serializer errors here
-            print(serializer.errors)  # Example of printing errors to the console
-            print("Serialization errors")
-            # You could log these errors, handle them, or customize the response
+            print(serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        # If the data is valid, proceed with creation
         self.perform_create(serializer)
-        temperature = request.data['temperature'] # temperatura intre -10 si 40 grade
-        weather = request.data['weather'] # nr intre 0 si 30
         
+        temperature = request.data['temperature'] # temperatura intre -10 si 40 grade
+        weather = request.data['weather'] # vremea intre 0 si 30
+    
         sunnyHot = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, 40, 6), ai_model.calc_wear_probability(weather, 30, 6)), 2)
         sunnyMild = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, 15, 6), ai_model.calc_wear_probability(weather, 30, 6)), 2)
         sunnyCold = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, -10, 6), ai_model.calc_wear_probability(weather, 30, 6)), 2)
@@ -166,13 +154,12 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def classify(self, request):
-        # category_mappings = {'Upper body clothes': 'Topwear', 'Lower body clothes': 'Bottomwear', 'Shoes': 'Footwear', 'Full body clothes': 'Bodywear', 'Head clothes': 'Headwear', 'Accessory': 'Accessories'}
-        # # category = ai_model.classify_category_from_b64(request.data['image'])
-        # category = category_mappings[ai_model.use_clip(['Upper body clothes', 'Lower body clothes', 'Shoes', 'Full body clothes', 'Head clothes', 'Accessory'], request.data['image'])]
-        
+        # category = ai_model.classify_category_from_b64(request.data['image'])        
         # subcategory = ai_model.classify_subcategory_from_b64(request.data['image'], category)
         # color = ai_model.classify_color_from_b64(request.data['image'])
-        color  = ai_model.use_clip([
+        # season = ai_model.classify_season_from_b64(request.data['image'])
+        # usage = ai_model.classify_usage_from_b64(request.data['image'])
+        color = ai_model.use_clip([
             'white', 'beige', 'black', 
             'light gray', 'gray', 'dark gray', 
             'yellow',  'dark yellow',  
@@ -183,20 +170,22 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
             'dark red', 'brown', 'purple', 'multicolor'
         ], request.data['image'])
         print(f"color = {color}")
-        # season = ai_model.classify_season_from_b64(request.data['image'])
-        # usage = ai_model.classify_usage_from_b64(request.data['image'])
-        subcategory = ai_model.use_clip(['Shirt', 'Tshirt', 'Sweater', 'Jacket', 'Jeans', 'Track Pants', 'Shorts', 'Skirt',
-                                          'Trousers', 'Leggings', 'Casual Shoes', 'Flip Flops', 'Sandals', 'Formal Shoes', 'Flats', 
-                                          'Sports Shoes', 'Heels', 'Tie', 'Watch', 'Belt', 'Jewelry'], request.data['image'])
-        subcategory_mappings = { 'Shirt': 'Topwear', 'Tshirt': 'Topwear', 'Sweater': 'Topwear' , 'Jacket': 'Topwear', 'Jeans': 'Bottomwear', 'Track Pants': 'Bottomwear', 'Shorts': 'Bottomwear', 'Skirt': 'Bottomwear',
-                                          'Trousers': 'Bottomwear', 'Leggings': 'Bottomwear', 'Casual Shoes': 'Footwear', 'Flip Flops': 'Footwear', 'Sandals': 'Footwear', 'Formal Shoes': 'Footwear', 'Flats': 'Footwear',
-                                          'Sports Shoes': 'Footwear', 'Heels': 'Footwear', 'Tie': 'Accessories', 'Watch': 'Accessories', 'Belt': 'Accessories', 'Jewelry': 'Accessories' }
+        subcategory = ai_model.use_clip(['Shirt', 'Tshirt', 'Sweater', 'Jacket', 
+                                         'Jeans', 'Track Pants', 'Shorts', 'Skirt', 'Trousers', 'Leggings', 
+                                         'Sneakers', 'Flip Flops', 'Sandals', 'Flats', 'Sports Shoes', 'Heels',
+                                         'Tie', 'Watch', 'Belt', 'Jewelry'], request.data['image'])
+        subcategory_mappings = { 'Shirt': 'Topwear', 'Tshirt': 'Topwear', 'Sweater': 'Topwear' , 'Jacket': 'Topwear', 
+                                 'Jeans': 'Bottomwear', 'Track Pants': 'Bottomwear', 'Shorts': 'Bottomwear', 'Skirt': 'Bottomwear', 'Trousers': 'Bottomwear', 'Leggings': 'Bottomwear', 
+                                 'Sneakers': 'Footwear', 'Flip Flops': 'Footwear', 'Sandals': 'Footwear', 'Flats': 'Footwear', 'Sports Shoes': 'Footwear', 'Heels': 'Footwear', 
+                                 'Tie': 'Accessories', 'Watch': 'Accessories', 'Belt': 'Accessories', 'Jewelry': 'Accessories' }
         category = subcategory_mappings[subcategory]
         season = ai_model.use_clip(['Spring clothes', 'Summer clothes', 'Autumn clothes', 'Winter clothes'], request.data['image'])
-        usage = ai_model.use_clip(['Casual clothes', 'Ethnic clothes', 'Formal clothes', 'Sports clothes', 'Smart casual clothes', 'Party clothes'],  request.data['image'])
         season = season[:season.find(' clothes')]
+        usage = ai_model.use_clip(['Casual clothes', 'Ethnic clothes', 'Formal clothes', 'Sports clothes', 'Smart Casual clothes', 'Party clothes'],  request.data['image'])
         usage = usage[:usage.find(' clothes')]
-        json = {"category": category, "subcategory": subcategory, "color": color, "season": season, "occasions": usage}
+        material = ai_model.use_clip(['Cotton', 'Wool', 'Silk', 'Polyester', 'Nylon'], request.data['image'])
+        pattern = ai_model.use_clip(['Striped', 'Checkered', 'Floral', 'Dotted', 'Plain'], request.data['image'])
+        json = {"category": category, "subcategory": subcategory, "color": color, "season": season, "occasions": usage, "material": material, "pattern": pattern}
         print(f"json = {json}")
         return Response(data=json, status=status.HTTP_200_OK)
     
@@ -218,75 +207,28 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         
         recommendations = []
 
-        if len(topwear) > 0:
-            print("topwear")
-            topwearPercentages = []
-            for item in topwear:
-                topwearPercentages.append(float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)))
-            print("topwear probs before normalization ", topwearPercentages)
-            topwearPercentages = ai_model.normalize_percentages(topwearPercentages)
-            print("topwear probs after normalization ", topwearPercentages)
-            print("p / 100 ", [p / 100 for p in topwearPercentages])
-            topwearProbabilities = []
-            for percentage in topwearPercentages:
-                likelihood = percentage / 100.0
-                prior = 1.0 / len(topwear)
-                marginal = likelihood * prior + (1-likelihood) * (1-prior)
-                posterior = likelihood * prior / marginal
-                print(f"prior {prior}, marginal {marginal}, posterior {posterior}")
-                topwearProbabilities.append(posterior)
-            print("topwear prob ", topwearProbabilities)
-            selected_topwear = topwear[topwearPercentages.index(max(topwearPercentages))]
-            recommendations.append({ "id": selected_topwear.id, "image": selected_topwear.image, "category": selected_topwear.category })
-        else:
-            recommendations.append({"id": -1, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
-
-        if len(bottomwear) > 0:
-            print("bottomwear")
-            bottomwearPercentages = []
-            for item in bottomwear:
-                bottomwearPercentages.append(float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)))
-            print("bottomwear probs before normalization ", bottomwearPercentages)
-            bottomwearPercentages = ai_model.normalize_percentages(bottomwearPercentages)
-            print("bottomwear prob after normalization", bottomwearPercentages)
-            print("p / 100 ", [p / 100 for p in bottomwearPercentages])
-            bottomwearProbabilities = []
-            for percentage in bottomwearPercentages:
-                likelihood = percentage / 100.0
-                prior = 1.0 / len(bottomwear)
-                marginal = likelihood * prior + (1-likelihood) * (1-prior)
-                posterior = likelihood * prior / marginal
-                print(f"prior {prior}, marginal {marginal}, posterior {posterior}")
-                bottomwearProbabilities.append(posterior)
-            print("bottomwear prob ", bottomwearProbabilities)
-            selected_bottomwear = bottomwear[bottomwearProbabilities.index(max(bottomwearProbabilities))]
-            print(selected_bottomwear.image[:30])
-            recommendations.append({ "id": selected_bottomwear.id, "image": selected_bottomwear.image, "category": selected_bottomwear.category})
-        else:
-            recommendations.append({"id": -2, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
-        
-        if len(footwear) > 0:
-            print("footwear")
-            footwearPercentages = []
-            for item in footwear:
-                footwearPercentages.append(float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)))
-            print("footwear probs before normalization ", footwearPercentages)
-            footwearPercentages = ai_model.normalize_percentages(footwearPercentages)
-            print("footwear probs after normalization ", footwearPercentages)
-            print("p / 100 ", [p / 100 for p in footwearPercentages])
-            footwearProbabilities = []
-            for percentage in bottomwearPercentages:
-                likelihood = percentage / 100.0
-                prior = 1.0 / len(footwear)
-                marginal = likelihood * prior + (1-likelihood) * (1-prior)
-                posterior = likelihood * prior / marginal
-                print(f"prior {prior}, marginal {marginal}, posterior {posterior}")
-                footwearProbabilities.append(posterior)
-            print("footwear prob ", footwearProbabilities)
-            selected_footwear = footwear[footwearPercentages.index(max(footwearPercentages))]
-            recommendations.append({ "id": selected_footwear.id, "image": selected_footwear.image, "category": selected_footwear.category})
-        else:
-            recommendations.append({"id": -3, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
+        for wear_category, category_name in [(topwear, "Topwear"), (bottomwear, "Bottomwear"), (footwear, "Footwear")]:
+            if len(wear_category) > 0:
+                print(category_name)
+                percentages = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)) for item in wear_category]
+                print(f"{category_name} probs before normalization ", percentages)
+                percentages = ai_model.normalize_percentages(percentages)
+                print(f"{category_name} probs after normalization ", percentages)
+                
+                probabilities = []
+                for percentage in percentages:
+                    likelihood = percentage / 100.0
+                    prior = 1.0 / len(wear_category)
+                    marginal = likelihood * prior + (1-likelihood) * (1-prior)
+                    posterior = likelihood * prior / marginal
+                    print(f"prior {prior}, marginal {marginal}, posterior {posterior}")
+                    probabilities.append(posterior)
+                
+                print(f"{category_name} prob ", probabilities)
+                selected_item = wear_category[percentages.index(max(percentages))]
+                recommendations.append({"id": selected_item.id, "image": selected_item.image, "category": selected_item.category})
+            else:
+                recommendations.append({"id": -1 if category_name == "topwear" else -2 if category_name == "bottomwear" else -3, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
 
         return Response(data=recommendations, status=status.HTTP_200_OK)
 
