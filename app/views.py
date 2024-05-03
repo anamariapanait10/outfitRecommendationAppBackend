@@ -38,7 +38,7 @@ class WornOutfitsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WornOutfits
-        fields = ['date', 'user_id', 'top', 'bottom', 'shoes']
+        fields = ['date', 'user', 'top', 'bottom', 'shoes']
         
 class ItemProbabilitySerializer(serializers.ModelSerializer):
     class Meta:
@@ -248,7 +248,7 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def get_for_year_month(self, request):
-        wornOutfits = WornOutfits.objects.prefetch_related('top', 'bottom', 'shoes').filter(user_id=request.user).filter(date__startswith=request.query_params['yearMonth'])
+        wornOutfits = WornOutfits.objects.prefetch_related('top', 'bottom', 'shoes').filter(user=request.user).filter(date__startswith=request.query_params['yearMonth'])
         result = {}
         for item in wornOutfits:
             serializer = WornOutfitsSerializer(item)
@@ -269,7 +269,7 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
         bottom = next((obj for obj in outfitItems if obj.category == "Bottomwear"), None)
         shoes = next((obj for obj in outfitItems if obj.category == "Footwear"), None)
 
-        WornOutfits.objects.create(date=date, user_id=request.user, top=top, bottom=bottom, shoes=shoes)
+        WornOutfits.objects.create(date=date, user=request.user, top=top, bottom=bottom, shoes=shoes)
 
         return Response(data="{}", status=status.HTTP_200_OK)
     
@@ -319,9 +319,16 @@ class AiExpertViewSet(viewsets.ViewSet):
         if topwear_image == None or bottomwear_image == None or footwear_image == None:
             return Response('Bad request', status=status.HTTP_400_BAD_REQUEST)
         if not event:
-            prompt = "Here are images of the selected outfit. Based on their style, color, material, and overall appearance, can these clothes be combined and look great? Return in JSON with decision and reason. Keep the reason shorter than 140 tokens"
+            prompt = (
+                "Here are images of the selected outfit. Based on their style, color, material, and overall appearance, can these clothes be "
+                "combined and look great? Return in JSON with decision and reason. Keep the reason shorter than 140 tokens"
+            )
         else:
-            prompt = f"Here are images of the selected outfit. Based on their style, color, material, overall appearance and the suitability for a {event.lower()} occasion, can these clothes be combined and look great? Return in JSON with decision and reason. Keep the reason shorter than 140 tokens"
+            prompt = (
+                "Here are images of the selected outfit. Based on their style, color, material, overall appearance and the suitability "
+                f"for a {event.lower()} occasion, can these clothes be combined and look great? Return in JSON with decision and reason. "
+                "Keep the reason shorter than 140 tokens"
+            )
         response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
@@ -419,7 +426,7 @@ class StatsViewSet(viewsets.ModelViewSet):
             number_of_days_in_season = (current_date - start_date).days
             print("Number of days in season ", number_of_days_in_season)
             worn_outfits_percentage = (len(worn_outfits_in_season) / number_of_days_in_season) * 100
-            Stats.objects.create(wardrobe=wardrobe, worn_clothes_percentage=worn_items_percentage, worn_outfits_percentage=worn_outfits_percentage, worn_outfits=worn_outfits_in_season, total_outfits=number_of_days_in_season, is_latest=True, season=season)
+            Stats.objects.create(wardrobe=wardrobe, worn_clothes_percentage=worn_items_percentage, worn_outfits_percentage=worn_outfits_percentage, worn_outfits=worn_outfits_in_season.count(), total_outfits=number_of_days_in_season, is_latest=True, season=season)
             if latest:
                 latest.is_latest = False
                 latest.save()
