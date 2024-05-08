@@ -1,4 +1,5 @@
 import base64
+import string
 from django.contrib.auth.models import User
 from django.db.models import Prefetch
 from app.models import ItemProbability, MarketplaceItems, OutfitItem, Wardrobe, WornOutfits, Stats
@@ -10,6 +11,7 @@ from openai import OpenAI
 from datetime import date
 import json
 import numpy as np
+from app.utils import find_substring, get_classification_from_gpt
 
 client = OpenAI()
 
@@ -162,33 +164,104 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         # color = ai_model.classify_color_from_b64(request.data['image'])
         # season = ai_model.classify_season_from_b64(request.data['image'])
         # usage = ai_model.classify_usage_from_b64(request.data['image'])
-        color = ai_model.use_clip([
-            'white', 'beige', 'black', 
-            'light gray', 'gray', 'dark gray', 
-            'yellow',  'dark yellow',  
-            'light green', 'green', 'dark green', 
-            'turquoise',  'orange',
-            'light blue', 'blue', 'dark blue',  
-            'light pink', 'pink', 'red',
-            'dark red', 'brown', 'purple', 'multicolor'
-        ], request.data['image'])
-        print(f"color = {color}")
-        subcategory = ai_model.use_clip(['Shirt', 'Tshirt', 'Sweater', 'Jacket', 
-                                         'Jeans', 'Track Pants', 'Shorts', 'Skirt', 'Trousers', 'Leggings', 
-                                         'Sneakers', 'Flip Flops', 'Sandals', 'Flats', 'Sports Shoes', 'Heels',
-                                         'Tie', 'Watch', 'Belt', 'Jewelry'], request.data['image'])
-        subcategory_mappings = { 'Shirt': 'Topwear', 'Tshirt': 'Topwear', 'Sweater': 'Topwear' , 'Jacket': 'Topwear', 
-                                 'Jeans': 'Bottomwear', 'Track Pants': 'Bottomwear', 'Shorts': 'Bottomwear', 'Skirt': 'Bottomwear', 'Trousers': 'Bottomwear', 'Leggings': 'Bottomwear', 
-                                 'Sneakers': 'Footwear', 'Flip Flops': 'Footwear', 'Sandals': 'Footwear', 'Flats': 'Footwear', 'Sports Shoes': 'Footwear', 'Heels': 'Footwear', 
-                                 'Tie': 'Accessories', 'Watch': 'Accessories', 'Belt': 'Accessories', 'Jewelry': 'Accessories' }
+
+        subcategory_prompts = {
+            # Topwear
+            "A person wearing a T-shirt": "T-shirt", 
+            "A person wearing a polo shirt": 'Polo Shirt',
+            "A person wearing a shirt": "Shirt", 
+            "A person wearing a sweater": "Sweater",
+            "A person wearing a jacket": "Jacket", 
+            "A person wearing a hoodie": "Hoodie",
+            "A blazer": "Blazer", 
+            # Bottomwear
+            "A pair of jeans": "Jeans",
+            "A pair of track pants": "Track Pants",
+            "A pair of shorts": "Shorts", 
+            "A skirt": "Skirt", 
+            "A pair of leggings": "Leggings",
+            "A pair of trousers": "Trousers",
+            # Bodywear
+            "A dress": "Dress",
+            "A bodysuit": "Bodysuit",
+            "A jumpsuit": "Jumpsuit",
+            # Footwear
+            "A pair of sneakers": "Sneakers", 
+            "A pair of slippers": "Slippers", 
+            "A pair of sandals": "Sandals",
+            "A pair of flat shoes": "Flats", 
+            "A pair of sports shoes": "Sports Shoes", 
+            "A pair of heels": "Heels",
+            "A pair of hiking shoes": "Hiking Shoes",
+            "A pair of boots": "Boots",
+            "A pair of sandals with heels": "Sandal Heels",
+            # Accessories
+            "A tie": "Tie", 
+            "A watch": "Watch", 
+            "A belt": "Belt", 
+            "A jewelry item": "Jewelry", 
+            "A handbag": "Handbag", 
+            "A backpack": "Backpack", 
+            # Headwear
+            "A cap": "Cap",
+            "A hat": "Hat",
+            "A beanie": "Beanie"
+        }
+
+        subcategory = subcategory_prompts[ai_model.use_clip(list(subcategory_prompts.keys()), request.data['image'])]
+        
+        subcategory_mappings = { 'T-shirt': 'Topwear', 'Polo Shirt': 'Topwear', 'Shirt': 'Topwear', 'Sweater': 'Topwear' , 'Jacket': 'Topwear', 'Hoodie': 'Topwear', 'Blazer': 'Topwear',
+                                 'Jeans': 'Bottomwear', 'Track Pants': 'Bottomwear', 'Shorts': 'Bottomwear', 'Skirt': 'Bottomwear', 'Leggings': 'Bottomwear', 'Trousers': 'Bottomwear', 
+                                 "Dress": "Bodywear", 'Bodysuit': 'Bodywear', 'Jumpsuit': 'Bodywear',
+                                 'Sneakers': 'Footwear', 'Slippers': 'Footwear', 'Sandals': 'Footwear', 'Flats': 'Footwear', 'Sports Shoes': 'Footwear', 'Heels': 'Footwear', 'Hiking Shoes': 'Footwear', 'Boots': 'Footwear', 'Sandal Heels': 'Footwear',
+                                 'Tie': 'Accessories', 'Watch': 'Accessories', 'Belt': 'Accessories', 'Jewelry': 'Accessories', 'Handbag': 'Accessories', 'Backpack': 'Accessories', 'Cap': 'Headwear', 'Hat': 'Headwear', 'Beanie': 'Headwear' }
         category = subcategory_mappings[subcategory]
-        season = ai_model.use_clip(['Spring clothes', 'Summer clothes', 'Autumn clothes', 'Winter clothes'], request.data['image'])
-        season = season[:season.find(' clothes')]
-        usage = ai_model.use_clip(['Casual clothes', 'Ethnic clothes', 'Formal clothes', 'Sports clothes', 'Smart Casual clothes', 'Party clothes'],  request.data['image'])
-        usage = usage[:usage.find(' clothes')]
-        material = ai_model.use_clip(['Cotton', 'Wool', 'Silk', 'Polyester', 'Nylon'], request.data['image'])
-        pattern = ai_model.use_clip(['Striped', 'Checkered', 'Floral', 'Dotted', 'Plain'], request.data['image'])
-        json = {"category": category, "subcategory": subcategory, "color": color, "season": season, "occasions": usage, "material": material, "pattern": pattern}
+
+        gpt_answers = get_classification_from_gpt(request.data['image'])
+
+        # color_list = [
+        #     'white', 'beige', 'black', 
+        #     'light gray', 'gray', 'dark gray', 
+        #     'yellow',  'dark yellow',  
+        #     'light green', 'green', 'dark green', 
+        #     'turquoise',  'orange',
+        #     'light blue', 'blue', 'dark blue',  
+        #     'light pink', 'pink', 'red',
+        #     'dark red', 'brown', 'purple', 'multicolor'
+        # ]
+        # color_labels = [f'A {col} {subcategory.lower()}' for col in color_list]
+        # color = ai_model.use_clip(color_labels, request.data['image'])
+        # color = find_substring(color, color_list)
+        # print(f"color = {color}")
+
+        # materials_list = ['Cotton', 'Wool', 'Silk', 'Synthetic fibers', 'Leather', 'Linen']
+        # material_descriptions = [f'A {subcategory.lower()} made of {mat.lower()}' for mat in materials_list]
+        # material = ai_model.use_clip(material_descriptions, request.data['image'])
+        # material = find_substring(material, materials_list)
+
+        # patterns_list = ['Striped', 'Checkered', 'Floral', 'Dotted', 'Plain', 'Animal print', 'Camouflage', 'Graphic']
+        # pattern = ai_model.use_clip([f'A {pat.lower()} {subcategory.lower()}' for pat in patterns_list], request.data['image'])
+        # pattern = find_substring(pattern, patterns_list)
+
+        season_mappings = {
+            'A clothing item for wearing during spring and autumn': 'Spring,Autumn', 
+            'A clothing item for wearing during spring and summer': 'Spring,Summer', 
+            'A clothing item for wearing during autumn and winter': 'Autumn,Winter', 
+            'A clothing item for wearing during spring': 'Spring', 
+            'A clothing item for wearing during summer': 'Summer', 
+            'A clothing item for wearing during autumn': 'Autumn',
+            'A clothing item for wearing during winter': 'Winter', 
+            'A clothing item well suited to all seasons': 'Spring,Summer,Autumn,Winter'
+        }
+        season = ai_model.use_clip(list(season_mappings.keys()), request.data['image'])
+        season = season_mappings[season]
+
+        # usages_list = ['Casual', 'Ethnic', 'Formal', 'Sports', 'Smart Casual', 'Party']
+        # usage = ai_model.use_clip([f'A {us.lower()} {subcategory.lower()}' for us in usages_list], request.data['image'])
+        # usage = find_substring(usage, usages_list)
+
+        # json = {"category": category, "subcategory": subcategory, "color": color, "season": season, "occasions": usage, "material": material, "pattern": pattern}
+        json = {"category": category, "subcategory": subcategory, "color": gpt_answers['color'], "season": season, "occasions": string.capwords(gpt_answers['occasion']), "material": string.capwords(gpt_answers['material']), "pattern": string.capwords(gpt_answers['pattern'])}
         print(f"json = {json}")
         return Response(data=json, status=status.HTTP_200_OK)
     
