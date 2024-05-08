@@ -95,6 +95,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         
         temperature = request.data['temperature'] # temperatura intre -10 si 40 grade
         weather = request.data['weather'] # vremea intre 0 si 30
+        preference = request.data['preference'] # preferinta intre 0 si 1
     
         sunnyHot = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, 40, 6), ai_model.calc_wear_probability(weather, 30, 6)), 2)
         sunnyMild = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, 15, 6), ai_model.calc_wear_probability(weather, 30, 6)), 2)
@@ -135,7 +136,8 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
             rainyCold=rainyCold,
             snowyHot=snowyHot,
             snowyMild=snowyMild,
-            snowyCold=snowyCold
+            snowyCold=snowyCold,
+            preference=preference
         )
         
         headers = self.get_success_headers(serializer.data)
@@ -208,32 +210,31 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         print(f"temperature = {temperature}")
         
         recommendations = []
-
         for wear_category, category_name in [(topwear, "Topwear"), (bottomwear, "Bottomwear"), (footwear, "Footwear")]:
             if len(wear_category) > 0:
                 print("-" * 20, category_name, "-" * 20)
-                percentages = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)) for item in wear_category]
-                probabilities = [p / 100 for p in percentages]
-                print(f"{category_name} probs before normalization ", probabilities)
-                probabilities = ai_model.normalize_probabilities(probabilities)
-                print(f"{category_name} probs after normalization ", probabilities)
+                percentages_weatherTemp_given_cloth = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)) for item in wear_category]
+                probs_weatherTemp_given_cloth = [p / 100 for p in percentages_weatherTemp_given_cloth]
+                print(f"{category_name} weather & temp given a cloth probs before normalization ", probs_weatherTemp_given_cloth)
+                probs_weatherTemp_given_cloth = ai_model.normalize_probabilities(probs_weatherTemp_given_cloth)
+                print(f"{category_name} weather & temp given a cloth probs after normalization ", probs_weatherTemp_given_cloth)
+                
+                clothes_prob = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), "preference")) for item in wear_category]
+                print(f"{category_name} cloth probs before normalization ", clothes_prob)
+                clothes_prob = ai_model.normalize_probabilities(clothes_prob)
+                print(f"{category_name} cloth probs after normalization ", clothes_prob)
                 
                 print("\tprior\t\tmarginal\tlikelihood")
                 new_probabilities = []
-                for prob in probabilities:
+                for prob in probs_weatherTemp_given_cloth:
                     likelihood = prob
-                    prior = 1.0 / len(wear_category)
-                    # marginal = likelihood * prior + (1-likelihood) * (1-prior)
-                    marginal = sum(probabilities) * prior
+                    prior = clothes_prob[probs_weatherTemp_given_cloth.index(prob)]
+                    marginal = sum([p * cp for p, cp in zip(probs_weatherTemp_given_cloth, clothes_prob)])
                     posterior = likelihood * prior / marginal
                     print(f"{prior} {marginal} {likelihood}")
                     new_probabilities.append(posterior)
                 
-                print(f"{category_name} prob before normalization", new_probabilities)
-                print("Sum of probabilities ", sum(new_probabilities))
-                new_probabilities = ai_model.normalize_probabilities(new_probabilities)
-                print(f"{category_name} prob after normalization", new_probabilities)
-                print("Sum of probabilities ", sum(new_probabilities))
+                print(f"{category_name} prob cloth given weather & temp", new_probabilities)
                 random_variable = np.random.choice(len(new_probabilities), p=new_probabilities)
                 print("Random variable ", random_variable)
                 selected_item = wear_category[random_variable]
