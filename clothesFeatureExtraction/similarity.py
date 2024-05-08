@@ -37,14 +37,16 @@ class Similarity:
 
         cos_similarities_description = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
 
-        # compute score for categorical attributes
+        # score for categorical attributes
         match_scores = []
         for item in candidate_items:
             score = 0
             score += (base_item.size == item.size)
             score += (base_item.brand == item.brand)
             score += (base_item.outfit.color == item.outfit.color)
-            score += (base_item.outfit.category == item.outfit.category)
+            if base_item.outfit.subCategory == item.outfit.subCategory:
+                score += 2
+            # score += (base_item.outfit.subCategory == item.outfit.subCategory)
             match_scores.append(score / 4)
         
         # calculate visual similarities
@@ -55,7 +57,7 @@ class Similarity:
             visual_similarity = cosine_similarity([base_features], [candidate_features])[0][0]
             visual_similarities.append(visual_similarity)
 
-        combined_scores = 0.4 * np.array(cos_similarities_description) + 0.4 * np.array(visual_similarities) + 0.2 * np.array(match_scores)
+        combined_scores = 0.3 * np.array(cos_similarities_description) + 0.3 * np.array(visual_similarities) + 0.4 * np.array(match_scores)
         return combined_scores
 
     def get_top_similar_items(self, base_item, candidate_items, num_results=3):

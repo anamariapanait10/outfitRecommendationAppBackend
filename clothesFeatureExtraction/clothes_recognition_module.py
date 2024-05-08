@@ -189,6 +189,28 @@ def normalize_percentages(percentages):
         
         return normalized_percentages
 
+def normalize_probabilities(probabilities):
+    total_sum = sum(probabilities)
+    if total_sum == 0:
+        normalized_probabilities = [1 / len(probabilities) for _ in probabilities]
+    else:
+        normalization_factor = 1 / total_sum
+        normalized_probabilities = [round(p * normalization_factor, 6) for p in probabilities]
+    
+    while sum(normalized_probabilities) != 1.0:
+        for i in range(len(normalized_probabilities)):
+            if sum(normalized_probabilities) < 1.0:
+                normalized_probabilities[i] += 0.000001
+                normalized_probabilities[i] = round(normalized_probabilities[i], 6)
+                if sum(normalized_probabilities) == 1.0:
+                    break
+            elif sum(normalized_probabilities) > 1.0:
+                normalized_probabilities[i] -= 0.000001
+                normalized_probabilities[i] = round(normalized_probabilities[i], 6)
+                if sum(normalized_probabilities) == 1.0:
+                    break
+
+    return normalized_probabilities
 
 def use_clip(labels, image_b64):
     image_data = base64.b64decode(image_b64[image_b64.find(','):])

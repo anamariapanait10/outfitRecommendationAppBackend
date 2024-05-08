@@ -9,6 +9,7 @@ import clothesFeatureExtraction.clothes_recognition_module as ai_model
 from openai import OpenAI
 from datetime import date
 import json
+import numpy as np
 
 client = OpenAI()
 
@@ -202,34 +203,44 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         
         weather = request.query_params['weather']
         temperature = request.query_params['temperature']
-        print(f"weather {weather}")
-        print(f"temperature {temperature}")
+        print("-" * 49)
+        print(f"weather = {weather}")
+        print(f"temperature = {temperature}")
         
         recommendations = []
 
         for wear_category, category_name in [(topwear, "Topwear"), (bottomwear, "Bottomwear"), (footwear, "Footwear")]:
             if len(wear_category) > 0:
-                print(category_name)
+                print("-" * 20, category_name, "-" * 20)
                 percentages = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)) for item in wear_category]
-                print(f"{category_name} probs before normalization ", percentages)
-                percentages = ai_model.normalize_percentages(percentages)
-                print(f"{category_name} probs after normalization ", percentages)
+                probabilities = [p / 100 for p in percentages]
+                print(f"{category_name} probs before normalization ", probabilities)
+                probabilities = ai_model.normalize_probabilities(probabilities)
+                print(f"{category_name} probs after normalization ", probabilities)
                 
-                probabilities = []
-                for percentage in percentages:
-                    likelihood = percentage / 100.0
+                print("\tprior\t\tmarginal\tlikelihood")
+                new_probabilities = []
+                for prob in probabilities:
+                    likelihood = prob
                     prior = 1.0 / len(wear_category)
-                    marginal = likelihood * prior + (1-likelihood) * (1-prior)
+                    # marginal = likelihood * prior + (1-likelihood) * (1-prior)
+                    marginal = sum(probabilities) * prior
                     posterior = likelihood * prior / marginal
-                    print(f"prior {prior}, marginal {marginal}, posterior {posterior}")
-                    probabilities.append(posterior)
+                    print(f"{prior} {marginal} {likelihood}")
+                    new_probabilities.append(posterior)
                 
-                print(f"{category_name} prob ", probabilities)
-                selected_item = wear_category[percentages.index(max(percentages))]
+                print(f"{category_name} prob before normalization", new_probabilities)
+                print("Sum of probabilities ", sum(new_probabilities))
+                new_probabilities = ai_model.normalize_probabilities(new_probabilities)
+                print(f"{category_name} prob after normalization", new_probabilities)
+                print("Sum of probabilities ", sum(new_probabilities))
+                random_variable = np.random.choice(len(new_probabilities), p=new_probabilities)
+                print("Random variable ", random_variable)
+                selected_item = wear_category[random_variable]
                 recommendations.append({"id": selected_item.id, "image": selected_item.image, "category": selected_item.category})
             else:
                 recommendations.append({"id": -1 if category_name == "topwear" else -2 if category_name == "bottomwear" else -3, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
-
+        print("-" * 49)
         return Response(data=recommendations, status=status.HTTP_200_OK)
 
 class WardrobeViewSet(viewsets.ModelViewSet):
