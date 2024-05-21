@@ -269,9 +269,34 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         with open(path, "rb") as f:
             encoded_image = base64.b64encode(f.read())
         return encoded_image
-        
+
+    def outfits_have_more_than_one_item_in_common(self, outfit1, outfit2):
+        common_items = 0
+        for item1 in outfit1:
+            for item2 in outfit2:
+                if item1['id'] == item2['id']:
+                    common_items += 1
+        return common_items > 1
+    
+    def check_not_enough_items_in_each_category(self, topwear, bottomwear, footwear, num_outfits):
+        if len(topwear) < 1 or len(bottomwear) < 1 or len(footwear) < 1:
+            categories = []
+            if len(topwear) < 1:
+                categories.append("Topwear")
+            if len(bottomwear) < 1:
+                categories.append("Bottomwear")
+            if len(footwear) < 1:
+                categories.append("Footwear")
+            return f"Not enough items in each category ({', '.join(categories)}) to form the recommended outfits."
+    
+    def get_number_of_outfits_possible(self, topwear, bottomwear, footwear, num_outfits):
+        return min(
+            min(len(topwear) + len(bottomwear), len(topwear) + len(footwear), len(bottomwear) + len(footwear)) - 1,
+            num_outfits
+        )
+    
     @action(detail=False, methods=['get'])
-    def get_recommendations(self, request):
+    def get_recommendations(self, request, num_outfits=3):
         topwear = OutfitItem.objects.all().filter(category='topwear')
         bottomwear = OutfitItem.objects.all().filter(category='bottomwear')
         footwear = OutfitItem.objects.all().filter(category='footwear')
@@ -282,39 +307,55 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         print(f"weather = {weather}")
         print(f"temperature = {temperature}")
         
+        err = self.check_not_enough_items_in_each_category(topwear, bottomwear, footwear, num_outfits)
+        if err:
+            return {"error": err}
+
+        num_outfits_possible = self.get_number_of_outfits_possible(topwear, bottomwear, footwear, num_outfits)
         recommendations = []
-        for wear_category, category_name in [(topwear, "Topwear"), (bottomwear, "Bottomwear"), (footwear, "Footwear")]:
-            if len(wear_category) > 0:
-                print("-" * 20, category_name, "-" * 20)
-                percentages_weatherTemp_given_cloth = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)) for item in wear_category]
-                probs_weatherTemp_given_cloth = [p / 100 for p in percentages_weatherTemp_given_cloth]
-                print(f"{category_name} weather & temp given a cloth probs before normalization ", probs_weatherTemp_given_cloth)
-                probs_weatherTemp_given_cloth = ai_model.normalize_probabilities(probs_weatherTemp_given_cloth)
-                print(f"{category_name} weather & temp given a cloth probs after normalization ", probs_weatherTemp_given_cloth)
-                
-                clothes_prob = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), "preference")) for item in wear_category]
-                print(f"{category_name} cloth probs before normalization ", clothes_prob)
-                clothes_prob = ai_model.normalize_probabilities(clothes_prob)
-                print(f"{category_name} cloth probs after normalization ", clothes_prob)
-                
-                print("\tprior\t\tmarginal\tlikelihood")
-                new_probabilities = []
-                for prob in probs_weatherTemp_given_cloth:
-                    likelihood = prob
-                    prior = clothes_prob[probs_weatherTemp_given_cloth.index(prob)]
-                    marginal = sum([p * cp for p, cp in zip(probs_weatherTemp_given_cloth, clothes_prob)])
-                    posterior = likelihood * prior / marginal
-                    print(f"{prior} {marginal} {likelihood}")
-                    new_probabilities.append(posterior)
-                
-                print(f"{category_name} prob cloth given weather & temp", new_probabilities)
-                random_variable = np.random.choice(len(new_probabilities), p=new_probabilities)
-                print("Random variable ", random_variable)
-                selected_item = wear_category[random_variable]
-                recommendations.append({"id": selected_item.id, "image": selected_item.image, "category": selected_item.category})
-            else:
-                recommendations.append({"id": -1 if category_name == "topwear" else -2 if category_name == "bottomwear" else -3, "image": "data:image/png;base64," + self.load_img_base64(r'app\assets\question_mark.png').decode('utf-8')})
-        print("-" * 49)
+        def generate_outfit():
+            outfit = []
+            for wear_category, category_name in [(topwear, "Topwear"), (bottomwear, "Bottomwear"), (footwear, "Footwear")]:
+                if len(wear_category) > 0:
+                    print("-" * 20, category_name, "-" * 20)
+                    percentages_weatherTemp_given_cloth = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)) for item in wear_category]
+                    probs_weatherTemp_given_cloth = [p / 100 for p in percentages_weatherTemp_given_cloth]
+                    print(f"{category_name} weather & temp given a cloth probs before normalization ", probs_weatherTemp_given_cloth)
+                    probs_weatherTemp_given_cloth = ai_model.normalize_probabilities(probs_weatherTemp_given_cloth)
+                    print(f"{category_name} weather & temp given a cloth probs after normalization ", probs_weatherTemp_given_cloth)
+                    
+                    clothes_prob = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), "preference")) for item in wear_category]
+                    print(f"{category_name} cloth probs before normalization ", clothes_prob)
+                    clothes_prob = ai_model.normalize_probabilities(clothes_prob)
+                    print(f"{category_name} cloth probs after normalization ", clothes_prob)
+                    
+                    print("\tprior\t\tmarginal\tlikelihood")
+                    new_probabilities = []
+                    for prob in probs_weatherTemp_given_cloth:
+                        likelihood = prob
+                        prior = clothes_prob[probs_weatherTemp_given_cloth.index(prob)]
+                        marginal = sum([p * cp for p, cp in zip(probs_weatherTemp_given_cloth, clothes_prob)])
+                        posterior = likelihood * prior / marginal
+                        print(f"{prior} {marginal} {likelihood}")
+                        new_probabilities.append(posterior)
+                    
+                    print(f"{category_name} prob cloth given weather & temp", new_probabilities)
+                    random_variable = np.random.choice(len(new_probabilities), p=new_probabilities)
+                    print("Random variable ", random_variable)
+                    selected_item = wear_category[random_variable]
+                    outfit.append({"id": selected_item.id, "image": selected_item.image, "category": selected_item.category})
+            print("-" * 49)
+            return outfit
+        
+        while len(recommendations) < num_outfits_possible:
+            new_outfit = generate_outfit()
+            if all(not self.outfits_have_more_than_one_item_in_common(new_outfit, existing_outfit) for existing_outfit in recommendations):
+                recommendations.append(new_outfit)
+        
+        # switch the first two outfits to have the first outfit in the middle
+        if len(recommendations) == 3:
+            recommendations[0], recommendations[1] = recommendations[1], recommendations[0]
+
         return Response(data=recommendations, status=status.HTTP_200_OK)
 
 class WardrobeViewSet(viewsets.ModelViewSet):
@@ -457,6 +498,8 @@ class AiExpertViewSet(viewsets.ViewSet):
         #     print(e)
         response = response.choices[0].message.content
         response = json.loads(response.replace('```json', '').replace('```', ''))
+        print("response ", response)
+        response['reason'] = ".\n".join([f"• {sentence}" for sentence in response['reason'].split(".")[:-1]])
         # print(response)
         return Response(response)
 
