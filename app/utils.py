@@ -17,7 +17,7 @@ def get_classification_from_gpt(image):
                 " and by the best occasion where it could be worn (named occasion in the json) (one of ['Casual', 'Ethnic', 'Formal', 'Sports', 'Smart Casual', 'Party']). Return answer in json format"
             )
     response = client.chat.completions.create(
-        model="gpt-4-turbo",
+        model="gpt-4o",
         messages=[
             {
                 "role": "user",

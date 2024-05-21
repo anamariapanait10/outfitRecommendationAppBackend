@@ -574,6 +574,56 @@ class StatsViewSet(viewsets.ModelViewSet):
             latest = Stats.objects.filter(wardrobe__user_id=user).filter(is_latest=True).first()
             
         return Response(data=StatsSerializer(latest).data, status=status.HTTP_200_OK)
+    
+
+    # Top 3 Most Used Colors This Month
+    # cele mai putin purtate haine din fiecare categorie
+    # cat la suta din haine sunt de vreme rece, medie, calda (util de exemplu ca sa vezi ca nu ai destule haine pt cand o sa fie frig)
+    @action(detail=False, methods=['get'])
+    def get_new_stats(self, request):
+        colors_map = {}
+        for outfit in WornOutfits.objects.all():
+            for item in [outfit.top, outfit.bottom, outfit.shoes]:
+                if item.color.lower().replace(' ', '-') in colors_map:
+                    colors_map[item.color.lower().replace(' ', '-')] += 1
+                else:
+                    colors_map[item.color.lower().replace(' ', '-')] = 1
+
+        colors_map = dict(sorted(colors_map.items(), key=lambda item: item[1], reverse=True)[:3])
+
+        userId = request.query_params['userId']
+
+        # compute the least worn items for each category
+        wardrobe = Wardrobe.objects.filter(user_id=userId).first()
+        least_worn_items = {}
+        for category in ['Topwear', 'Bottomwear', 'Footwear']:
+            outfit_items = OutfitItem.objects.filter(wardrobe=wardrobe, category=category)
+            least_worn_item = None
+            min_worn = float('inf')
+            for item in outfit_items:
+                worn = WornOutfits.objects.filter(user=userId).filter(top=item).count() + WornOutfits.objects.filter(user=userId).filter(bottom=item).count() + WornOutfits.objects.filter(user=userId).filter(shoes=item).count()
+                if worn < min_worn:
+                    min_worn = worn
+                    least_worn_item = item
+            least_worn_items[category] = least_worn_item
+
+        least_worn_items_serialized = {}
+        for category, item in least_worn_items.items():
+            serializer = OutfitItemSerializer(item)
+            least_worn_items_serialized[category] = serializer.data
+
+        # compute the percentage of clothes for each type of weather
+        wardrobe_items = OutfitItem.objects.filter(wardrobe=wardrobe)
+        total_items = len(wardrobe_items)
+        cold_items = wardrobe_items.filter(seasons__contains='Winter').count()
+        mild_items = wardrobe_items.filter(seasons__contains='Spring').count() + wardrobe_items.filter(seasons__contains='Autumn').count()
+        hot_items = wardrobe_items.filter(seasons__contains='Summer').count()
+        cold_percentage = round((cold_items / total_items) * 100, 2)
+        mild_percentage = round((mild_items / total_items) * 100, 2)
+        hot_percentage = round((hot_items / total_items) * 100, 2)
+        clothing_season_distribution = [{'name': 'Cold', 'percent': cold_percentage, 'color': '#00BFFF'}, {'name': 'Mild', 'percent': mild_percentage, 'color': '#ADFF2F'}, {'name': 'Hot', 'percent': hot_percentage, 'color': '#FF4500'}]
+
+        return Response(data={ "topColors":colors_map, "leastWornItems": least_worn_items_serialized, "clothingSeasonDistribution": clothing_season_distribution}, status=status.HTTP_200_OK)
             
         
         
