@@ -11,7 +11,7 @@ from openai import OpenAI
 from datetime import date
 import json
 import numpy as np
-from app.utils import find_substring, get_classification_from_gpt
+from app.utils import get_classification_from_gpt
 
 client = OpenAI()
 
@@ -19,11 +19,6 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
 
-class OutfitItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OutfitItem
-        fields = '__all__'
-        
 class WardrobeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wardrobe
@@ -34,6 +29,69 @@ class StatsSerializer(serializers.ModelSerializer):
         model = Stats
         fields = '__all__'
 
+        
+# class ItemProbabilitySerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = ItemProbability
+#         fields = '__all__'
+
+class ItemProbabilitySerializer(serializers.ModelSerializer):
+    max_probability = serializers.SerializerMethodField()
+    max_probability_name = serializers.SerializerMethodField()
+    preference = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ItemProbability
+        fields = ['max_probability', 'max_probability_name', 'preference']
+
+    def get_preference(self, obj):
+        # convert the number from [0, 1] to a grade from 1 to 10
+        preference = round(obj.preference * 10, 2)
+        preference_str = f"{preference:.2f}".rstrip('0').rstrip('.')
+        return f"{preference_str} / 10"
+
+    def get_max_probability(self, obj):
+        probabilities = {
+            "sunnyHot": obj.sunnyHot,
+            "sunnyMild": obj.sunnyMild,
+            "sunnyCold": obj.sunnyCold,
+            "rainyHot": obj.rainyHot,
+            "rainyMild": obj.rainyMild,
+            "rainyCold": obj.rainyCold,
+            "overcastHot": obj.overcastHot,
+            "overcastMild": obj.overcastMild,
+            "overcastCold": obj.overcastCold,
+            "snowyHot": obj.snowyHot,
+            "snowyMild": obj.snowyMild,
+            "snowyCold": obj.snowyCold
+        }
+        return max(probabilities.values())
+
+    def get_max_probability_name(self, obj):
+        probabilities = {
+            "Sunny & Hot": obj.sunnyHot,
+            "Sunny & Mild": obj.sunnyMild,
+            "Sunny & Cold": obj.sunnyCold,
+            "Rainy & Hot": obj.rainyHot,
+            "Rainy & Mild": obj.rainyMild,
+            "Rainy & Cold": obj.rainyCold,
+            "Overcast & Hot": obj.overcastHot,
+            "Overcast & Mild": obj.overcastMild,
+            "Overcast & Cold": obj.overcastCold,
+            "Snowy & Hot": obj.snowyHot,
+            "Snowy & Mild": obj.snowyMild,
+            "Snowy & Cold": obj.snowyCold
+        }
+        max_prob_name = max(probabilities, key=probabilities.get)
+        return max_prob_name
+
+class OutfitItemSerializer(serializers.ModelSerializer):
+    itemprobability = ItemProbabilitySerializer(read_only=True)
+    
+    class Meta:
+        model = OutfitItem
+        fields = '__all__'
+        
 class WornOutfitsSerializer(serializers.ModelSerializer):
     top = OutfitItemSerializer()
     bottom = OutfitItemSerializer()
@@ -42,11 +100,6 @@ class WornOutfitsSerializer(serializers.ModelSerializer):
     class Meta:
         model = WornOutfits
         fields = ['date', 'user', 'top', 'bottom', 'shoes']
-        
-class ItemProbabilitySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ItemProbability
-        fields = '__all__'
 
 class MarketplaceItemReadSerializer(serializers.ModelSerializer):
     outfit = OutfitItemSerializer(read_only=True)
@@ -97,7 +150,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         
         temperature = request.data['temperature'] # temperatura intre -10 si 40 grade
         weather = request.data['weather'] # vremea intre 0 si 30
-        preference = request.data['preference'] # preferinta intre 0 si 1
+        preference = round(request.data['preference'], 6) # preferinta intre 0 si 1
     
         sunnyHot = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, 40, 6), ai_model.calc_wear_probability(weather, 30, 6)), 2)
         sunnyMild = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, 15, 6), ai_model.calc_wear_probability(weather, 30, 6)), 2)
@@ -144,7 +197,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-    
+
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         queryset = self.queryset.filter(wardrobe_id=Wardrobe.objects.filter(user_id=request.user).first().id)
@@ -153,7 +206,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-        
+
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     
@@ -320,28 +373,39 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
                     print("-" * 20, category_name, "-" * 20)
                     percentages_weatherTemp_given_cloth = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)) for item in wear_category]
                     probs_weatherTemp_given_cloth = [p / 100 for p in percentages_weatherTemp_given_cloth]
-                    print(f"{category_name} weather & temp given a cloth probs before normalization ", probs_weatherTemp_given_cloth)
+                    print(f"{category_name} P(weather & temp|clothing item) before normalization ", probs_weatherTemp_given_cloth)
                     probs_weatherTemp_given_cloth = ai_model.normalize_probabilities(probs_weatherTemp_given_cloth)
-                    print(f"{category_name} weather & temp given a cloth probs after normalization ", probs_weatherTemp_given_cloth)
+                    print(f"{category_name} P(weather & temp|clothing item) after normalization ", probs_weatherTemp_given_cloth)
                     
                     clothes_prob = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), "preference")) for item in wear_category]
-                    print(f"{category_name} cloth probs before normalization ", clothes_prob)
+                    print(f"{category_name} P(clothing item) before normalization ", clothes_prob)
                     clothes_prob = ai_model.normalize_probabilities(clothes_prob)
-                    print(f"{category_name} cloth probs after normalization ", clothes_prob)
-                    
+                    print(f"{category_name} P(clothing item) after normalization ", clothes_prob)
+                    print()
+                    print("Bayes theorem")
+                    print("P(clothing item|weather & temp) = P(weather & temp|clothing item) * P(clothing item) / P(weather & temp)")
+                    print()
+                    print("Law of total probability")
+                    print("P(weather & temp) = sum(P(weather & temp|clothing item) * P(clothing item))")
+                    print()
                     print("\tprior\t\tmarginal\tlikelihood")
                     new_probabilities = []
                     for prob in probs_weatherTemp_given_cloth:
-                        likelihood = prob
-                        prior = clothes_prob[probs_weatherTemp_given_cloth.index(prob)]
-                        marginal = sum([p * cp for p, cp in zip(probs_weatherTemp_given_cloth, clothes_prob)])
-                        posterior = likelihood * prior / marginal
-                        print(f"{prior} {marginal} {likelihood}")
+                        likelihood = prob # P(weather & temp|clothing item)
+                        prior = clothes_prob[probs_weatherTemp_given_cloth.index(prob)] # P(clothing item)
+                        marginal = round(sum([round(p * cp, 12) for p, cp in zip(probs_weatherTemp_given_cloth, clothes_prob)]), 12) # P(weather & temp)
+                        posterior = round(round(likelihood * prior, 12) / marginal, 12)
+                        print(f"\t{prior}\t{marginal}\t{likelihood}")
+                        # print(probs_weatherTemp_given_cloth)
+                        # print(clothes_prob)
+                        # print([round(p * cp, 12) for p, cp in zip(probs_weatherTemp_given_cloth, clothes_prob)])
                         new_probabilities.append(posterior)
                     
-                    print(f"{category_name} prob cloth given weather & temp", new_probabilities)
+                    print(f"{category_name} P(clothing item|weather & temp) before normalization ", new_probabilities)
+                    new_probabilities = ai_model.normalize_probabilities(new_probabilities, 12)
+                    print(f"{category_name} P(clothing item|weather & temp) after normalization ", new_probabilities)
                     random_variable = np.random.choice(len(new_probabilities), p=new_probabilities)
-                    print("Random variable ", random_variable)
+                    print(f"Random variable {random_variable}, total items {len(wear_category)}")
                     selected_item = wear_category[random_variable]
                     outfit.append({"id": selected_item.id, "image": selected_item.image, "category": selected_item.category})
             print("-" * 49)

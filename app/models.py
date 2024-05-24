@@ -21,7 +21,7 @@ class OutfitItem(models.Model):
         return self.id
     
 class ItemProbability(models.Model):
-    outfitItem = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, primary_key=True)
+    outfitItem = models.OneToOneField(OutfitItem, on_delete=models.CASCADE, primary_key=True, related_name='itemprobability')
     sunnyHot = models.DecimalField(max_digits=5, decimal_places=2)
     sunnyMild = models.DecimalField(max_digits=5, decimal_places=2)
     sunnyCold = models.DecimalField(max_digits=5, decimal_places=2)
