@@ -38,13 +38,15 @@ class StatsSerializer(serializers.ModelSerializer):
 class ItemProbabilitySerializer(serializers.ModelSerializer):
     max_probability = serializers.SerializerMethodField()
     max_probability_name = serializers.SerializerMethodField()
-    preference = serializers.SerializerMethodField()
+    preference_grade = serializers.SerializerMethodField()
+    temperatureSliderValue = serializers.DecimalField(max_digits=5, decimal_places=2)
+    weatherSliderValue = serializers.DecimalField(max_digits=5, decimal_places=2)
 
     class Meta:
         model = ItemProbability
-        fields = ['max_probability', 'max_probability_name', 'preference']
+        fields = ['max_probability', 'max_probability_name', 'preference_grade', 'preference', 'temperatureSliderValue', 'weatherSliderValue']
 
-    def get_preference(self, obj):
+    def get_preference_grade(self, obj):
         # convert the number from [0, 1] to a grade from 1 to 10
         preference = round(obj.preference * 10, 2)
         preference_str = f"{preference:.2f}".rstrip('0').rstrip('.')
@@ -192,7 +194,9 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
             snowyHot=snowyHot,
             snowyMild=snowyMild,
             snowyCold=snowyCold,
-            preference=preference
+            preference=preference,
+            weatherSliderValue=weather,
+            temperatureSliderValue=temperature
         )
         
         headers = self.get_success_headers(serializer.data)

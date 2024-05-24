@@ -35,6 +35,8 @@ class ItemProbability(models.Model):
     snowyMild = models.DecimalField(max_digits=5, decimal_places=2)
     snowyCold = models.DecimalField(max_digits=5, decimal_places=2)
     preference = models.DecimalField(max_digits=10, decimal_places=6)
+    weatherSliderValue = models.DecimalField(max_digits=5, decimal_places=2)
+    temperatureSliderValue = models.DecimalField(max_digits=5, decimal_places=2)
     
     
 class Stats(models.Model):
