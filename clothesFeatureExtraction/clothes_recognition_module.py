@@ -180,24 +180,24 @@ def normalize_percentages(percentages):
         
         return normalized_percentages
 
-def normalize_probabilities(probabilities):
+def normalize_probabilities(probabilities, num_decimals=6):
     total_sum = sum(probabilities)
     if total_sum == 0:
         normalized_probabilities = [1 / len(probabilities) for _ in probabilities]
     else:
         normalization_factor = 1 / total_sum
-        normalized_probabilities = [round(p * normalization_factor, 6) for p in probabilities]
+        normalized_probabilities = [round(p * normalization_factor, num_decimals) for p in probabilities]
     
     while sum(normalized_probabilities) != 1.0:
         for i in range(len(normalized_probabilities)):
             if sum(normalized_probabilities) < 1.0:
-                normalized_probabilities[i] += 0.000001
-                normalized_probabilities[i] = round(normalized_probabilities[i], 6)
+                normalized_probabilities[i] += 1/10**(num_decimals)
+                normalized_probabilities[i] = round(normalized_probabilities[i], num_decimals)
                 if sum(normalized_probabilities) == 1.0:
                     break
             elif sum(normalized_probabilities) > 1.0:
-                normalized_probabilities[i] -= 0.000001
-                normalized_probabilities[i] = round(normalized_probabilities[i], 6)
+                normalized_probabilities[i] -= 1/10**(num_decimals)
+                normalized_probabilities[i] = round(normalized_probabilities[i], num_decimals)
                 if sum(normalized_probabilities) == 1.0:
                     break
 

@@ -53,9 +53,10 @@ class Stats(models.Model):
 class WornOutfits(models.Model):
     date = models.CharField(primary_key=True, max_length=12)
     user = models.CharField(max_length=255)
-    top = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='top')
-    bottom = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='bottom')
+    top = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='top', null=True, blank=True)
+    bottom = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='bottom', null=True, blank=True)
     shoes = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='shoes')
+    body = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='body', null=True, blank=True)
 
 
 class MarketplaceItems(models.Model):

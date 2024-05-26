@@ -98,10 +98,11 @@ class WornOutfitsSerializer(serializers.ModelSerializer):
     top = OutfitItemSerializer()
     bottom = OutfitItemSerializer()
     shoes = OutfitItemSerializer()
+    body = OutfitItemSerializer()
 
     class Meta:
         model = WornOutfits
-        fields = ['date', 'user', 'top', 'bottom', 'shoes']
+        fields = ['date', 'user', 'top', 'bottom', 'shoes', 'body']
 
 class MarketplaceItemReadSerializer(serializers.ModelSerializer):
     outfit = OutfitItemSerializer(read_only=True)
@@ -442,7 +443,7 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def get_for_year_month(self, request):
-        wornOutfits = WornOutfits.objects.prefetch_related('top', 'bottom', 'shoes').filter(user=request.user).filter(date__startswith=request.query_params['yearMonth'])
+        wornOutfits = WornOutfits.objects.prefetch_related('top', 'bottom', 'shoes', 'body').filter(user=request.user).filter(date__startswith=request.query_params['yearMonth'])
         result = {}
         for item in wornOutfits:
             serializer = WornOutfitsSerializer(item)
@@ -456,14 +457,18 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
         date = request.data['date']
         first = OutfitItem.objects.filter(id=outfitItems[0]['id']).first()
         second = OutfitItem.objects.filter(id=outfitItems[1]['id']).first()
-        third = OutfitItem.objects.filter(id=outfitItems[2]['id']).first()
-        outfitItems = [first, second, third]
+        if len(outfitItems) > 2:
+            third = OutfitItem.objects.filter(id=outfitItems[2]['id']).first()
+            outfitItems = [first, second, third]
+        else:
+            outfitItems = [first, second]
         
         top = next((obj for obj in outfitItems if obj.category == "Topwear"), None)
         bottom = next((obj for obj in outfitItems if obj.category == "Bottomwear"), None)
         shoes = next((obj for obj in outfitItems if obj.category == "Footwear"), None)
+        body = next((obj for obj in outfitItems if obj.category == "Bodywear"), None)
 
-        WornOutfits.objects.create(date=date, user=request.user, top=top, bottom=bottom, shoes=shoes)
+        WornOutfits.objects.create(date=date, user=request.user, top=top, bottom=bottom, shoes=shoes, body=body)
 
         return Response(data="{}", status=status.HTTP_200_OK)
     
@@ -506,12 +511,21 @@ class AiExpertViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['post'])
     def ask(self, request):
-        topwear_image = request.data['topwear']['image']
-        bottomwear_image = request.data['bottomwear']['image']
-        footwear_image = request.data['footwear']['image']
-        event = request.data['event']
-        if topwear_image == None or bottomwear_image == None or footwear_image == None:
+        images = []
+        if request.data['bodywear']: # if the outfit is a one piece clothing item (bodywear + footwear)
+            bodywear_image = request.data['bodywear']['image']
+            footwear_image = request.data['footwear']['image']
+            images = [bodywear_image, footwear_image]
+        else:
+            topwear_image = request.data['topwear']['image']
+            bottomwear_image = request.data['bottomwear']['image']
+            footwear_image = request.data['footwear']['image']
+            images = [topwear_image, bottomwear_image, footwear_image]
+            event = request.data['event']
+        
+        if (topwear_image != None and bottomwear_image != None and footwear_image != None) or (bodywear_image != None and footwear_image != None):
             return Response('Bad request', status=status.HTTP_400_BAD_REQUEST)
+        
         if not event:
             prompt = (
                 "Here are images of the selected outfit. Based on their style, color, material, and overall appearance, can these clothes be "
@@ -523,47 +537,28 @@ class AiExpertViewSet(viewsets.ViewSet):
                 f"for a {event.lower()} occasion, can these clothes be combined and look great? Return in JSON with decision and reason. "
                 "Keep the reason shorter than 140 tokens"
             )
+        images_description = [
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": image,
+                    "detail": "low"
+                },
+            } for image in images]
         response = client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-4o",
             messages=[
                 {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": topwear_image,
-                            "detail": "low"
-                        },
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": bottomwear_image,
-                            "detail": "low"
-                        },
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url":footwear_image,
-                            "detail": "low"
-                        },
-                    },
-                ],
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        *images_description
+                    ],
                 }
             ],
             max_tokens=150,
         )
 
-        # try:
-        #     with open('raspuns.json', 'r') as f:
-        #         # f.write(response.choices[0].message.content)
-        #         response = f.read()
-        #         f.close()
-        # except Exception as e:
-        #     print(e)
         response = response.choices[0].message.content
         response = json.loads(response.replace('```json', '').replace('```', ''))
         print("response ", response)
