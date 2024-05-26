@@ -724,7 +724,7 @@ class StatsViewSet(viewsets.ModelViewSet):
             return Response(data={ "status": "wardrobe empty"}, status=status.HTTP_200_OK) 
 
         cold_items = wardrobe_items.filter(seasons__contains='Winter').count()
-        mild_items = wardrobe_items.filter(seasons_contains='Spring').count() + wardrobe_items.filter(seasons_contains='Autumn').count()
+        mild_items = wardrobe_items.filter(seasons__contains='Spring').count() + wardrobe_items.filter(seasons__contains='Autumn').count()
         hot_items = wardrobe_items.filter(seasons__contains='Summer').count()
         cold_percentage = round((cold_items / total_items) * 100, 2)
         mild_percentage = round((mild_items / total_items) * 100, 2)
