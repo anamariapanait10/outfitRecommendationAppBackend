@@ -367,7 +367,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
                 categories.append("Footwear")
             if len(bodywear) < 1:
                 categories.append("Bodywear")
-            return f"Not enough items in each category ({', '.join(categories)}) to form the recommended outfits."
+            return f"Not enough items in categories {', '.join(categories)} to form the recommended outfits!"
     
     def get_number_of_outfits_possible(self, topwear, bottomwear, footwear, bodywear, num_outfits, one_piece):
         max_outfits = (
@@ -380,6 +380,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
     def get_recommendations(self, request, num_outfits=3):
         user = request.query_params['userId']
         wardrobe = Wardrobe.objects.filter(user_id=user).first()
+        # wardrobe = Wardrobe.objects.filter(id=1).first()
         topwear = OutfitItem.objects.all().filter(category='topwear').filter(wardrobe_id=wardrobe.id)
         bottomwear = OutfitItem.objects.all().filter(category='bottomwear').filter(wardrobe_id=wardrobe.id)
         footwear = OutfitItem.objects.all().filter(category='footwear').filter(wardrobe_id=wardrobe.id)
@@ -394,7 +395,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         
         err = self.check_not_enough_items_in_each_category(topwear, bottomwear, footwear, bodywear, one_piece)
         if err:
-            return {"error": err}
+            return Response(data={"error": err}, status=status.HTTP_200_OK)
         num_outfits = self.get_number_of_outfits_possible(topwear, bottomwear, footwear, bodywear, num_outfits, one_piece)
         
         def compute_clothing_probabilities():

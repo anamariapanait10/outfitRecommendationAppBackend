@@ -1,4 +1,3 @@
-
 # middleware.py
 import datetime
 
