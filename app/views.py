@@ -336,8 +336,8 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
                     common_items += 1
         return common_items > 1
     
-    def check_not_enough_items_in_each_category(self, topwear, bottomwear, footwear, num_outfits):
-        if len(topwear) < 1 or len(bottomwear) < 1 or len(footwear) < 1:
+    def check_not_enough_items_in_each_category(self, topwear, bottomwear, footwear, bodywear, one_piece):
+        if ((len(topwear) < 1 or len(bottomwear) < 1) and not one_piece) or (len(bodywear) < 1 and one_piece) or len(footwear) < 1:
             categories = []
             if len(topwear) < 1:
                 categories.append("Topwear")
@@ -345,47 +345,51 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
                 categories.append("Bottomwear")
             if len(footwear) < 1:
                 categories.append("Footwear")
+            if len(bodywear) < 1:
+                categories.append("Bodywear")
             return f"Not enough items in each category ({', '.join(categories)}) to form the recommended outfits."
     
-    def get_number_of_outfits_possible(self, topwear, bottomwear, footwear, num_outfits):
-        return min(
-            min(len(topwear) + len(bottomwear), len(topwear) + len(footwear), len(bottomwear) + len(footwear)) - 1,
-            num_outfits
+    def get_number_of_outfits_possible(self, topwear, bottomwear, footwear, bodywear, num_outfits, one_piece):
+        max_outfits = (
+            len(bodywear) * len(footwear) if one_piece
+            else min(len(topwear) * len(bottomwear), len(topwear) * len(footwear), len(bottomwear) * len(footwear))
         )
+        return min(max_outfits, num_outfits)
     
     @action(detail=False, methods=['get'])
     def get_recommendations(self, request, num_outfits=3):
         topwear = OutfitItem.objects.all().filter(category='topwear')
         bottomwear = OutfitItem.objects.all().filter(category='bottomwear')
         footwear = OutfitItem.objects.all().filter(category='footwear')
+        bodywear = OutfitItem.objects.all().filter(category='bodywear')
         
         weather = request.query_params['weather']
         temperature = request.query_params['temperature']
+        one_piece = request.query_params['onePiece'] == 'true'
         print("-" * 49)
         print(f"weather = {weather}")
         print(f"temperature = {temperature}")
         
-        err = self.check_not_enough_items_in_each_category(topwear, bottomwear, footwear, num_outfits)
+        err = self.check_not_enough_items_in_each_category(topwear, bottomwear, footwear, bodywear, one_piece)
         if err:
             return {"error": err}
-
-        num_outfits_possible = self.get_number_of_outfits_possible(topwear, bottomwear, footwear, num_outfits)
-        recommendations = []
-        def generate_outfit():
-            outfit = []
-            for wear_category, category_name in [(topwear, "Topwear"), (bottomwear, "Bottomwear"), (footwear, "Footwear")]:
-                if len(wear_category) > 0:
+        num_outfits = self.get_number_of_outfits_possible(topwear, bottomwear, footwear, bodywear, num_outfits, one_piece)
+        
+        def compute_clothing_probabilities():
+            clothing_probabilities = {}
+            for category_items, category_name in [(topwear, "Topwear"), (bottomwear, "Bottomwear"), (footwear, "Footwear"), (bodywear, "Bodywear")]:
+                if len(category_items) > 0:
                     print("-" * 20, category_name, "-" * 20)
-                    percentages_weatherTemp_given_cloth = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)) for item in wear_category]
+                    percentages_weatherTemp_given_cloth = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), weather + temperature)) for item in category_items]
                     probs_weatherTemp_given_cloth = [p / 100 for p in percentages_weatherTemp_given_cloth]
                     print(f"{category_name} P(weather & temp|clothing item) before normalization ", probs_weatherTemp_given_cloth)
                     probs_weatherTemp_given_cloth = ai_model.normalize_probabilities(probs_weatherTemp_given_cloth)
                     print(f"{category_name} P(weather & temp|clothing item) after normalization ", probs_weatherTemp_given_cloth)
                     
-                    clothes_prob = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), "preference")) for item in wear_category]
-                    print(f"{category_name} P(clothing item) before normalization ", clothes_prob)
-                    clothes_prob = ai_model.normalize_probabilities(clothes_prob)
-                    print(f"{category_name} P(clothing item) after normalization ", clothes_prob)
+                    clothing_prob = [float(getattr(ItemProbability.objects.filter(outfitItem=item.id).first(), "preference")) for item in category_items]
+                    print(f"{category_name} P(clothing item) before normalization ", clothing_prob)
+                    clothing_prob = ai_model.normalize_probabilities(clothing_prob)
+                    print(f"{category_name} P(clothing item) after normalization ", clothing_prob)
                     print()
                     print("Bayes theorem")
                     print("P(clothing item|weather & temp) = P(weather & temp|clothing item) * P(clothing item) / P(weather & temp)")
@@ -397,27 +401,36 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
                     new_probabilities = []
                     for prob in probs_weatherTemp_given_cloth:
                         likelihood = prob # P(weather & temp|clothing item)
-                        prior = clothes_prob[probs_weatherTemp_given_cloth.index(prob)] # P(clothing item)
-                        marginal = round(sum([round(p * cp, 12) for p, cp in zip(probs_weatherTemp_given_cloth, clothes_prob)]), 12) # P(weather & temp)
+                        prior = clothing_prob[probs_weatherTemp_given_cloth.index(prob)] # P(clothing item)
+                        marginal = round(sum([round(p * cp, 12) for p, cp in zip(probs_weatherTemp_given_cloth, clothing_prob)]), 12) # P(weather & temp)
                         posterior = round(round(likelihood * prior, 12) / marginal, 12)
                         print(f"\t{prior}\t{marginal}\t{likelihood}")
-                        # print(probs_weatherTemp_given_cloth)
-                        # print(clothes_prob)
-                        # print([round(p * cp, 12) for p, cp in zip(probs_weatherTemp_given_cloth, clothes_prob)])
                         new_probabilities.append(posterior)
                     
                     print(f"{category_name} P(clothing item|weather & temp) before normalization ", new_probabilities)
                     new_probabilities = ai_model.normalize_probabilities(new_probabilities, 12)
                     print(f"{category_name} P(clothing item|weather & temp) after normalization ", new_probabilities)
-                    random_variable = np.random.choice(len(new_probabilities), p=new_probabilities)
-                    print(f"Random variable {random_variable}, total items {len(wear_category)}")
-                    selected_item = wear_category[random_variable]
-                    outfit.append({"id": selected_item.id, "image": selected_item.image, "category": selected_item.category})
+                    clothing_probabilities[category_name] = new_probabilities
             print("-" * 49)
+            return clothing_probabilities
+
+        def generate_outfit(clothing_probabilities):
+            outfit = []
+            if one_piece:
+                wear_categories = [(bodywear, "Bodywear"), (footwear, "Footwear")]
+            else: 
+                wear_categories = [(topwear, "Topwear"), (bottomwear, "Bottomwear"), (footwear, "Footwear")]
+            for (category_items, category_name) in wear_categories:
+                random_variable = np.random.choice(len(category_items), p=clothing_probabilities[category_name])
+                print(f"Category {category_name}, random variable {random_variable}, total items {len(category_items)}, clothing probabilities {clothing_probabilities[category_name]}")
+                selected_item = category_items[random_variable]
+                outfit.append({"id": selected_item.id, "image": selected_item.image, "category": selected_item.category})
             return outfit
-        
-        while len(recommendations) < num_outfits_possible:
-            new_outfit = generate_outfit()
+
+        clothing_probabilities = compute_clothing_probabilities()
+        recommendations = []
+        while len(recommendations) < num_outfits:
+            new_outfit = generate_outfit(clothing_probabilities)
             if all(not self.outfits_have_more_than_one_item_in_common(new_outfit, existing_outfit) for existing_outfit in recommendations):
                 recommendations.append(new_outfit)
         
@@ -512,7 +525,7 @@ class AiExpertViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['post'])
     def ask(self, request):
         images = []
-        if request.data['bodywear']: # if the outfit is a one piece clothing item (bodywear + footwear)
+        if 'bodywear' in request.data: # if the outfit is a one piece clothing item (bodywear + footwear)
             bodywear_image = request.data['bodywear']['image']
             footwear_image = request.data['footwear']['image']
             images = [bodywear_image, footwear_image]
@@ -521,20 +534,17 @@ class AiExpertViewSet(viewsets.ViewSet):
             bottomwear_image = request.data['bottomwear']['image']
             footwear_image = request.data['footwear']['image']
             images = [topwear_image, bottomwear_image, footwear_image]
-            event = request.data['event']
-        
-        if (topwear_image != None and bottomwear_image != None and footwear_image != None) or (bodywear_image != None and footwear_image != None):
-            return Response('Bad request', status=status.HTTP_400_BAD_REQUEST)
+        event = request.data['event']
         
         if not event:
             prompt = (
                 "Here are images of the selected outfit. Based on their style, color, material, and overall appearance, can these clothes be "
-                "combined and look great? Return in JSON with decision and reason. Keep the reason shorter than 140 tokens"
+                "combined and look great? Return in JSON with decision (yes or no) and reason. Keep the reason shorter than 140 tokens"
             )
         else:
             prompt = (
                 "Here are images of the selected outfit. Based on their style, color, material, overall appearance and the suitability "
-                f"for a {event.lower()} occasion, can these clothes be combined and look great? Return in JSON with decision and reason. "
+                f"for a {event.lower()} occasion, can these clothes be combined and look great? Return in JSON with decision (yes or no) and reason. "
                 "Keep the reason shorter than 140 tokens"
             )
         images_description = [
@@ -561,6 +571,8 @@ class AiExpertViewSet(viewsets.ViewSet):
 
         response = response.choices[0].message.content
         response = json.loads(response.replace('```json', '').replace('```', ''))
+        # make all keys lowercase
+        response = {k.lower(): v for k, v in response.items()}
         print("response ", response)
         response['reason'] = ".\n".join([f"• {sentence}" for sentence in response['reason'].split(".")[:-1]])
         # print(response)
@@ -645,16 +657,22 @@ class StatsViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def get_new_stats(self, request):
         colors_map = {}
-        for outfit in WornOutfits.objects.all():
-            for item in [outfit.top, outfit.bottom, outfit.shoes]:
-                if item.color.lower().replace(' ', '-') in colors_map:
-                    colors_map[item.color.lower().replace(' ', '-')] += 1
-                else:
-                    colors_map[item.color.lower().replace(' ', '-')] = 1
+        userId = request.query_params['userId']
+        for outfit in WornOutfits.objects.filter(user=userId):
+            if not outfit.body:
+                for item in [outfit.top, outfit.bottom, outfit.shoes]:
+                    if item.color.lower().replace(' ', '-') in colors_map:
+                        colors_map[item.color.lower().replace(' ', '-')] += 1
+                    else:
+                        colors_map[item.color.lower().replace(' ', '-')] = 1
+            else:
+                for item in [outfit.body, outfit.shoes]:
+                    if item.color.lower().replace(' ', '-') in colors_map:
+                        colors_map[item.color.lower().replace(' ', '-')] += 1
+                    else:
+                        colors_map[item.color.lower().replace(' ', '-')] = 1
 
         colors_map = dict(sorted(colors_map.items(), key=lambda item: item[1], reverse=True)[:3])
-
-        userId = request.query_params['userId']
 
         # compute the least worn items for each category
         wardrobe = Wardrobe.objects.filter(user_id=userId).first()
@@ -678,15 +696,20 @@ class StatsViewSet(viewsets.ModelViewSet):
         # compute the percentage of clothes for each type of weather
         wardrobe_items = OutfitItem.objects.filter(wardrobe=wardrobe)
         total_items = len(wardrobe_items)
+        clothing_season_distribution = []
+        
+        if total_items == 0:
+            return Response(data={ "status": "wardrobe empty"}, status=status.HTTP_200_OK) 
+
         cold_items = wardrobe_items.filter(seasons__contains='Winter').count()
-        mild_items = wardrobe_items.filter(seasons__contains='Spring').count() + wardrobe_items.filter(seasons__contains='Autumn').count()
+        mild_items = wardrobe_items.filter(seasons_contains='Spring').count() + wardrobe_items.filter(seasons_contains='Autumn').count()
         hot_items = wardrobe_items.filter(seasons__contains='Summer').count()
         cold_percentage = round((cold_items / total_items) * 100, 2)
         mild_percentage = round((mild_items / total_items) * 100, 2)
         hot_percentage = round((hot_items / total_items) * 100, 2)
         clothing_season_distribution = [{'name': 'Cold', 'percent': cold_percentage, 'color': '#00BFFF'}, {'name': 'Mild', 'percent': mild_percentage, 'color': '#ADFF2F'}, {'name': 'Hot', 'percent': hot_percentage, 'color': '#FF4500'}]
 
-        return Response(data={ "topColors":colors_map, "leastWornItems": least_worn_items_serialized, "clothingSeasonDistribution": clothing_season_distribution}, status=status.HTTP_200_OK)
+        return Response(data={ "status": "ok" ,"topColors":colors_map, "leastWornItems": least_worn_items_serialized, "clothingSeasonDistribution": clothing_season_distribution}, status=status.HTTP_200_OK)
             
         
         
