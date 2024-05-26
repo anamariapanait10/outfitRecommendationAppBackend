@@ -1,7 +1,6 @@
 import base64
 import string
 from django.contrib.auth.models import User
-from django.db.models import Prefetch
 from app.models import ItemProbability, MarketplaceItems, OutfitItem, Wardrobe, WornOutfits, Stats
 from rest_framework import permissions, serializers, viewsets, status
 from rest_framework.response import Response
@@ -358,10 +357,12 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def get_recommendations(self, request, num_outfits=3):
-        topwear = OutfitItem.objects.all().filter(category='topwear')
-        bottomwear = OutfitItem.objects.all().filter(category='bottomwear')
-        footwear = OutfitItem.objects.all().filter(category='footwear')
-        bodywear = OutfitItem.objects.all().filter(category='bodywear')
+        user = request.query_params['userId']
+        wardrobe = Wardrobe.objects.filter(user_id=user).first()
+        topwear = OutfitItem.objects.all().filter(category='topwear').filter(wardrobe_id=wardrobe.id)
+        bottomwear = OutfitItem.objects.all().filter(category='bottomwear').filter(wardrobe_id=wardrobe.id)
+        footwear = OutfitItem.objects.all().filter(category='footwear').filter(wardrobe_id=wardrobe.id)
+        bodywear = OutfitItem.objects.all().filter(category='bodywear').filter(wardrobe_id=wardrobe.id)
         
         weather = request.query_params['weather']
         temperature = request.query_params['temperature']
