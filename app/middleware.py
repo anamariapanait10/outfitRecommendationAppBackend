@@ -12,6 +12,8 @@ from jwt.algorithms import RSAAlgorithm
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
+from app.models import Wardrobe
+
 env = environ.Env()
 
 CLERK_API_URL = "https://api.clerk.com/v1"
@@ -41,6 +43,8 @@ class JWTAuthenticationMiddleware(BaseAuthentication):
                 user.last_name = info["last_name"] if info["last_name"] is not None else ""
                 user.last_login = info["last_login"]
             user.save()
+            if not Wardrobe.objects.filter(user_id=user.username).exists():
+                Wardrobe.objects.create(user_id=user.username)
 
         return user, None
 
