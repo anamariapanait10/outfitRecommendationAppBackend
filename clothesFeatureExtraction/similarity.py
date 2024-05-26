@@ -1,12 +1,9 @@
-from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
-from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.resnet50 import ResNet50
 from tensorflow.keras.models import Model
 import tensorflow as tf
 import numpy as np
 import base64
-import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import linear_kernel
 from sklearn.metrics.pairwise import cosine_similarity
 
 

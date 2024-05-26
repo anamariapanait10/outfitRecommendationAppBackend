@@ -204,7 +204,12 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        queryset = self.queryset.filter(wardrobe_id=Wardrobe.objects.filter(user_id=request.user).first().id)
+        wardrobe = Wardrobe.objects.filter(user_id=request.user).first()
+        
+        if not wardrobe:
+            return Response(data=[], status=status.HTTP_200_OK)
+        
+        queryset = self.queryset.filter(wardrobe_id=wardrobe.id)
 
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -213,6 +218,22 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+    
+    def update(self, request, *args, **kwargs):
+        item = self.get_queryset().filter(id=kwargs['pk']).first()
+        
+        if not item:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        
+        new_data = request.data
+
+        for key in new_data.keys():
+            if(new_data[key] != None):
+                setattr(item, key, new_data[key])
+
+        item.save()
+
+        return Response(data="{}", status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['post'])
     def classify(self, request):
@@ -497,8 +518,7 @@ class MarketplaceItemsViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def get_available_items_for_user(self, request):
-        user = request.query_params['userId']
-        availableItems = MarketplaceItems.objects.prefetch_related('outfit').filter(user_id=user)
+        availableItems = MarketplaceItems.objects.prefetch_related('outfit')
         result = []
         for item in availableItems:
             serializer = MarketplaceItemReadSerializer(item)
