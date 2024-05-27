@@ -10,7 +10,7 @@ from openai import OpenAI
 from datetime import date
 import json
 import numpy as np
-from app.utils import get_classification_from_gpt
+from app.utils import get_classification_from_gpt, get_description_from_gpt
 
 client = OpenAI()
 
@@ -21,18 +21,18 @@ class UserSerializer(serializers.ModelSerializer):
 class WardrobeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wardrobe
-        fields = '__all__'
+        fields = "__all__"
 
 class StatsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stats
-        fields = '__all__'
+        fields = "__all__"
 
         
 # class ItemProbabilitySerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = ItemProbability
-#         fields = '__all__'
+#         fields = "__all__"
 
 class ItemProbabilitySerializer(serializers.ModelSerializer):
     max_probability = serializers.SerializerMethodField()
@@ -43,12 +43,12 @@ class ItemProbabilitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItemProbability
-        fields = ['max_probability', 'max_probability_name', 'preference_grade', 'preference', 'temperatureSliderValue', 'weatherSliderValue']
+        fields = ["max_probability", "max_probability_name", "preference_grade", "preference", "temperatureSliderValue", "weatherSliderValue"]
 
     def get_preference_grade(self, obj):
         # convert the number from [0, 1] to a grade from 1 to 10
         preference = round(obj.preference * 10, 2)
-        preference_str = f"{preference:.2f}".rstrip('0').rstrip('.')
+        preference_str = f"{preference:.2f}".rstrip("0").rstrip(".")
         return f"{preference_str} / 10"
 
     def get_max_probability(self, obj):
@@ -91,7 +91,7 @@ class OutfitItemSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = OutfitItem
-        fields = '__all__'
+        fields = "__all__"
         
 class WornOutfitsSerializer(serializers.ModelSerializer):
     top = OutfitItemSerializer()
@@ -101,21 +101,21 @@ class WornOutfitsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WornOutfits
-        fields = ['date', 'user', 'top', 'bottom', 'shoes', 'body']
+        fields = ["date", "user", "top", "bottom", "shoes", "body"]
 
 class MarketplaceItemReadSerializer(serializers.ModelSerializer):
     outfit = OutfitItemSerializer(read_only=True)
 
     class Meta:
         model = MarketplaceItems
-        fields = '__all__'
+        fields = "__all__"
 
 class MarketplaceItemWriteSerializer(serializers.ModelSerializer):
     outfit = serializers.PrimaryKeyRelatedField(queryset=OutfitItem.objects.all())
 
     class Meta:
         model = MarketplaceItems
-        fields = '__all__'
+        fields = "__all__"
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -143,16 +143,16 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         else:
             wardrobe_id = Wardrobe.objects.create(user_id=request.user).id
 
-        request.data['wardrobe'] = wardrobe_id
+        request.data["wardrobe"] = wardrobe_id
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
             print(serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         self.perform_create(serializer)
         
-        temperature = request.data['temperature'] # temperatura intre -10 si 40 grade
-        weather = request.data['weather'] # vremea intre 0 si 30
-        preference = round(request.data['preference'], 6) # preferinta intre 0 si 1
+        temperature = request.data["temperature"] # temperatura intre -10 si 40 grade
+        weather = request.data["weather"] # vremea intre 0 si 30
+        preference = round(request.data["preference"], 6) # preferinta intre 0 si 1
     
         sunnyHot = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, 40, 6), ai_model.calc_wear_probability(weather, 30, 6)), 2)
         sunnyMild = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, 15, 6), ai_model.calc_wear_probability(weather, 30, 6)), 2)
@@ -167,21 +167,21 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         snowyMild = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, 15, 6), ai_model.calc_wear_probability(weather, 0, 6)), 2)
         snowyCold = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, -10, 6), ai_model.calc_wear_probability(weather, 0, 6)), 2)
         
-        print("sunnyHot = ", format(sunnyHot, '.2f'))
-        print("sunnyMild = ", format(sunnyMild, '.2f'))
-        print("sunnyCold = ", format(sunnyCold, '.2f'))
-        print("overcastHot = ", format(overcastHot, '.2f'))
-        print("overcastMild = ", format(overcastMild, '.2f'))
-        print("overcastCold = ", format(overcastCold, '.2f'))
-        print("rainyHot = ", format(rainyHot, '.2f'))
-        print("rainyMild = ", format(rainyMild, '.2f'))
-        print("rainyCold = ", format(rainyCold, '.2f'))
-        print("snowyHot = ", format(snowyHot, '.2f'))
-        print("snowyMild = ", format(snowyMild, '.2f'))
-        print("snowyCold = ", format(snowyCold, '.2f'))
+        print("sunnyHot = ", format(sunnyHot, ".2f"))
+        print("sunnyMild = ", format(sunnyMild, ".2f"))
+        print("sunnyCold = ", format(sunnyCold, ".2f"))
+        print("overcastHot = ", format(overcastHot, ".2f"))
+        print("overcastMild = ", format(overcastMild, ".2f"))
+        print("overcastCold = ", format(overcastCold, ".2f"))
+        print("rainyHot = ", format(rainyHot, ".2f"))
+        print("rainyMild = ", format(rainyMild, ".2f"))
+        print("rainyCold = ", format(rainyCold, ".2f"))
+        print("snowyHot = ", format(snowyHot, ".2f"))
+        print("snowyMild = ", format(snowyMild, ".2f"))
+        print("snowyCold = ", format(snowyCold, ".2f"))
         
         ItemProbability.objects.create(
-            outfitItem=OutfitItem.objects.filter(id=serializer.data['id']).first(), 
+            outfitItem=OutfitItem.objects.filter(id=serializer.data["id"]).first(), 
             sunnyHot=sunnyHot,
             sunnyMild=sunnyMild,
             sunnyCold=sunnyCold,
@@ -220,7 +220,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     def update(self, request, *args, **kwargs):
-        item = self.get_queryset().filter(id=kwargs['pk']).first()
+        item = self.get_queryset().filter(id=kwargs["pk"]).first()
         
         if not item:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -235,18 +235,18 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
 
         return Response(data="{}", status=status.HTTP_200_OK)
     
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def classify(self, request):
-        # category = ai_model.classify_category_from_b64(request.data['image'])        
-        # subcategory = ai_model.classify_subcategory_from_b64(request.data['image'], category)
-        # color = ai_model.classify_color_from_b64(request.data['image'])
-        # season = ai_model.classify_season_from_b64(request.data['image'])
-        # usage = ai_model.classify_usage_from_b64(request.data['image'])
+        # category = ai_model.classify_category_from_b64(request.data["image"])        
+        # subcategory = ai_model.classify_subcategory_from_b64(request.data["image"], category)
+        # color = ai_model.classify_color_from_b64(request.data["image"])
+        # season = ai_model.classify_season_from_b64(request.data["image"])
+        # usage = ai_model.classify_usage_from_b64(request.data["image"])
 
         subcategory_prompts = {
             # Topwear
             "A person wearing a T-shirt": "T-shirt", 
-            "A person wearing a polo shirt": 'Polo Shirt',
+            "A person wearing a polo shirt": "Polo Shirt",
             "A person wearing a shirt": "Shirt", 
             "A person wearing a sweater": "Sweater",
             "A person wearing a jacket": "Jacket", 
@@ -286,60 +286,60 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
             "A beanie": "Beanie"
         }
 
-        subcategory = subcategory_prompts[ai_model.use_clip(list(subcategory_prompts.keys()), request.data['image'])]
+        subcategory = subcategory_prompts[ai_model.use_clip(list(subcategory_prompts.keys()), request.data["image"])]
         
-        subcategory_mappings = { 'T-shirt': 'Topwear', 'Polo Shirt': 'Topwear', 'Shirt': 'Topwear', 'Sweater': 'Topwear' , 'Jacket': 'Topwear', 'Hoodie': 'Topwear', 'Blazer': 'Topwear',
-                                 'Jeans': 'Bottomwear', 'Track Pants': 'Bottomwear', 'Shorts': 'Bottomwear', 'Skirt': 'Bottomwear', 'Leggings': 'Bottomwear', 'Trousers': 'Bottomwear', 
-                                 "Dress": "Bodywear", 'Bodysuit': 'Bodywear', 'Jumpsuit': 'Bodywear',
-                                 'Sneakers': 'Footwear', 'Slippers': 'Footwear', 'Sandals': 'Footwear', 'Flats': 'Footwear', 'Sports Shoes': 'Footwear', 'Heels': 'Footwear', 'Hiking Shoes': 'Footwear', 'Boots': 'Footwear', 'Sandal Heels': 'Footwear',
-                                 'Tie': 'Accessories', 'Watch': 'Accessories', 'Belt': 'Accessories', 'Jewelry': 'Accessories', 'Handbag': 'Accessories', 'Backpack': 'Accessories', 'Cap': 'Headwear', 'Hat': 'Headwear', 'Beanie': 'Headwear' }
+        subcategory_mappings = { "T-shirt": "Topwear", "Polo Shirt": "Topwear", "Shirt": "Topwear", "Sweater": "Topwear" , "Jacket": "Topwear", "Hoodie": "Topwear", "Blazer": "Topwear",
+                                 "Jeans": "Bottomwear", "Track Pants": "Bottomwear", "Shorts": "Bottomwear", "Skirt": "Bottomwear", "Leggings": "Bottomwear", "Trousers": "Bottomwear", 
+                                 "Dress": "Bodywear", "Bodysuit": "Bodywear", "Jumpsuit": "Bodywear",
+                                 "Sneakers": "Footwear", "Slippers": "Footwear", "Sandals": "Footwear", "Flats": "Footwear", "Sports Shoes": "Footwear", "Heels": "Footwear", "Hiking Shoes": "Footwear", "Boots": "Footwear", "Sandal Heels": "Footwear",
+                                 "Tie": "Accessories", "Watch": "Accessories", "Belt": "Accessories", "Jewelry": "Accessories", "Handbag": "Accessories", "Backpack": "Accessories", "Cap": "Headwear", "Hat": "Headwear", "Beanie": "Headwear" }
         category = subcategory_mappings[subcategory]
 
-        gpt_answers = get_classification_from_gpt(request.data['image'])
+        gpt_answers = get_classification_from_gpt(request.data["image"])
 
         # color_list = [
-        #     'white', 'beige', 'black', 
-        #     'light gray', 'gray', 'dark gray', 
-        #     'yellow',  'dark yellow',  
-        #     'light green', 'green', 'dark green', 
-        #     'turquoise',  'orange',
-        #     'light blue', 'blue', 'dark blue',  
-        #     'light pink', 'pink', 'red',
-        #     'dark red', 'brown', 'purple', 'multicolor'
+        #     "white", "beige", "black", 
+        #     "light gray", "gray", "dark gray", 
+        #     "yellow",  "dark yellow",  
+        #     "light green", "green", "dark green", 
+        #     "turquoise",  "orange",
+        #     "light blue", "blue", "dark blue",  
+        #     "light pink", "pink", "red",
+        #     "dark red", "brown", "purple", "multicolor"
         # ]
-        # color_labels = [f'A {col} {subcategory.lower()}' for col in color_list]
-        # color = ai_model.use_clip(color_labels, request.data['image'])
+        # color_labels = [f"A {col} {subcategory.lower()}" for col in color_list]
+        # color = ai_model.use_clip(color_labels, request.data["image"])
         # color = find_substring(color, color_list)
         # print(f"color = {color}")
 
-        # materials_list = ['Cotton', 'Wool', 'Silk', 'Synthetic fibers', 'Leather', 'Linen']
-        # material_descriptions = [f'A {subcategory.lower()} made of {mat.lower()}' for mat in materials_list]
-        # material = ai_model.use_clip(material_descriptions, request.data['image'])
+        # materials_list = ["Cotton", "Wool", "Silk", "Synthetic fibers", "Leather", "Linen"]
+        # material_descriptions = [f"A {subcategory.lower()} made of {mat.lower()}" for mat in materials_list]
+        # material = ai_model.use_clip(material_descriptions, request.data["image"])
         # material = find_substring(material, materials_list)
 
-        # patterns_list = ['Striped', 'Checkered', 'Floral', 'Dotted', 'Plain', 'Animal print', 'Camouflage', 'Graphic']
-        # pattern = ai_model.use_clip([f'A {pat.lower()} {subcategory.lower()}' for pat in patterns_list], request.data['image'])
+        # patterns_list = ["Striped", "Checkered", "Floral", "Dotted", "Plain", "Animal print", "Camouflage", "Graphic"]
+        # pattern = ai_model.use_clip([f"A {pat.lower()} {subcategory.lower()}" for pat in patterns_list], request.data["image"])
         # pattern = find_substring(pattern, patterns_list)
 
         season_mappings = {
-            'A clothing item for wearing during spring and autumn': 'Spring,Autumn', 
-            'A clothing item for wearing during spring and summer': 'Spring,Summer', 
-            'A clothing item for wearing during autumn and winter': 'Autumn,Winter', 
-            'A clothing item for wearing during spring': 'Spring', 
-            'A clothing item for wearing during summer': 'Summer', 
-            'A clothing item for wearing during autumn': 'Autumn',
-            'A clothing item for wearing during winter': 'Winter', 
-            'A clothing item well suited to all seasons': 'Spring,Summer,Autumn,Winter'
+            "A clothing item for wearing during spring and autumn": "Spring,Autumn", 
+            "A clothing item for wearing during spring and summer": "Spring,Summer", 
+            "A clothing item for wearing during autumn and winter": "Autumn,Winter", 
+            "A clothing item for wearing during spring": "Spring", 
+            "A clothing item for wearing during summer": "Summer", 
+            "A clothing item for wearing during autumn": "Autumn",
+            "A clothing item for wearing during winter": "Winter", 
+            "A clothing item well suited to all seasons": "Spring,Summer,Autumn,Winter"
         }
-        season = ai_model.use_clip(list(season_mappings.keys()), request.data['image'])
+        season = ai_model.use_clip(list(season_mappings.keys()), request.data["image"])
         season = season_mappings[season]
 
-        # usages_list = ['Casual', 'Ethnic', 'Formal', 'Sports', 'Smart Casual', 'Party']
-        # usage = ai_model.use_clip([f'A {us.lower()} {subcategory.lower()}' for us in usages_list], request.data['image'])
+        # usages_list = ["Casual", "Ethnic", "Formal", "Sports", "Smart Casual", "Party"]
+        # usage = ai_model.use_clip([f"A {us.lower()} {subcategory.lower()}" for us in usages_list], request.data["image"])
         # usage = find_substring(usage, usages_list)
 
         # json = {"category": category, "subcategory": subcategory, "color": color, "season": season, "occasions": usage, "material": material, "pattern": pattern}
-        json = {"category": category, "subcategory": subcategory, "color": gpt_answers['color'], "season": season, "occasions": string.capwords(gpt_answers['occasion']), "material": string.capwords(gpt_answers['material']), "pattern": string.capwords(gpt_answers['pattern'])}
+        json = {"category": category, "subcategory": subcategory, "color": gpt_answers["color"], "season": season, "occasions": string.capwords(gpt_answers["occasion"]), "material": string.capwords(gpt_answers["material"]), "pattern": string.capwords(gpt_answers["pattern"])}
         print(f"json = {json}")
         return Response(data=json, status=status.HTTP_200_OK)
     
@@ -352,7 +352,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         common_items = 0
         for item1 in outfit1:
             for item2 in outfit2:
-                if item1['id'] == item2['id']:
+                if item1["id"] == item2["id"]:
                     common_items += 1
         return common_items > 1
     
@@ -376,18 +376,18 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         )
         return min(max_outfits, num_outfits)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def get_recommendations(self, request, num_outfits=3):
-        user = request.query_params['userId']
+        user = request.query_params["userId"]
         wardrobe = Wardrobe.objects.filter(user_id=user).first()
-        topwear = OutfitItem.objects.all().filter(category='topwear').filter(wardrobe_id=wardrobe.id)
-        bottomwear = OutfitItem.objects.all().filter(category='bottomwear').filter(wardrobe_id=wardrobe.id)
-        footwear = OutfitItem.objects.all().filter(category='footwear').filter(wardrobe_id=wardrobe.id)
-        bodywear = OutfitItem.objects.all().filter(category='bodywear').filter(wardrobe_id=wardrobe.id)
+        topwear = OutfitItem.objects.all().filter(category="topwear").filter(wardrobe_id=wardrobe.id)
+        bottomwear = OutfitItem.objects.all().filter(category="bottomwear").filter(wardrobe_id=wardrobe.id)
+        footwear = OutfitItem.objects.all().filter(category="footwear").filter(wardrobe_id=wardrobe.id)
+        bodywear = OutfitItem.objects.all().filter(category="bodywear").filter(wardrobe_id=wardrobe.id)
         
-        weather = request.query_params['weather']
-        temperature = request.query_params['temperature']
-        one_piece = request.query_params['onePiece'] == 'true'
+        weather = request.query_params["weather"]
+        temperature = request.query_params["temperature"]
+        one_piece = request.query_params["onePiece"] == "true"
         print("-" * 49)
         print(f"weather = {weather}")
         print(f"temperature = {temperature}")
@@ -462,6 +462,12 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
 
         return Response(data=recommendations, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=["post"])
+    def get_description(self, request):
+        print(request.data)
+        item = OutfitItem.objects.filter(id=request.data["id"]).first()
+        return Response(data=get_description_from_gpt(item), status=status.HTTP_200_OK)
+        
 class WardrobeViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows wardrobes to be viewed or edited.
@@ -476,9 +482,9 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
     serializer_class = WornOutfitsSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def get_for_year_month(self, request):
-        wornOutfits = WornOutfits.objects.prefetch_related('top', 'bottom', 'shoes', 'body').filter(user=request.user).filter(date__startswith=request.query_params['yearMonth'])
+        wornOutfits = WornOutfits.objects.prefetch_related("top", "bottom", "shoes", "body").filter(user=request.user).filter(date__startswith=request.query_params["yearMonth"])
         result = {}
         for item in wornOutfits:
             serializer = WornOutfitsSerializer(item)
@@ -486,14 +492,14 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
         
         return Response(result)
     
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def wear(self, request):
-        outfitItems = request.data['outfit']
-        date = request.data['date']
-        first = OutfitItem.objects.filter(id=outfitItems[0]['id']).first()
-        second = OutfitItem.objects.filter(id=outfitItems[1]['id']).first()
+        outfitItems = request.data["outfit"]
+        date = request.data["date"]
+        first = OutfitItem.objects.filter(id=outfitItems[0]["id"]).first()
+        second = OutfitItem.objects.filter(id=outfitItems[1]["id"]).first()
         if len(outfitItems) > 2:
-            third = OutfitItem.objects.filter(id=outfitItems[2]['id']).first()
+            third = OutfitItem.objects.filter(id=outfitItems[2]["id"]).first()
             outfitItems = [first, second, third]
         else:
             outfitItems = [first, second]
@@ -512,13 +518,13 @@ class MarketplaceItemsViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
-        if self.action in ['list', 'retrieve']:
+        if self.action in ["list", "retrieve"]:
             return MarketplaceItemReadSerializer
         return MarketplaceItemWriteSerializer
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def get_available_items_for_user(self, request):
-        availableItems = MarketplaceItems.objects.prefetch_related('outfit')
+        availableItems = MarketplaceItems.objects.prefetch_related("outfit")
         result = []
         for item in availableItems:
             serializer = MarketplaceItemReadSerializer(item)
@@ -526,11 +532,11 @@ class MarketplaceItemsViewSet(viewsets.ModelViewSet):
 
         return Response(result)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def similarity(self, request):
-        marketplace_item_id = request.query_params['marketplaceItemId']
-        marketplace_item = MarketplaceItems.objects.prefetch_related('outfit').filter(id=marketplace_item_id).first()
-        marketplace_items = MarketplaceItems.objects.prefetch_related('outfit').exclude(id=marketplace_item_id)
+        marketplace_item_id = request.query_params["marketplaceItemId"]
+        marketplace_item = MarketplaceItems.objects.prefetch_related("outfit").filter(id=marketplace_item_id).first()
+        marketplace_items = MarketplaceItems.objects.prefetch_related("outfit").exclude(id=marketplace_item_id)
         similarity = ai_model.calculate_similarity(marketplace_item, marketplace_items)
         
         result = []
@@ -543,19 +549,19 @@ class MarketplaceItemsViewSet(viewsets.ModelViewSet):
 class AiExpertViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def ask(self, request):
         images = []
-        if 'bodywear' in request.data: # if the outfit is a one piece clothing item (bodywear + footwear)
-            bodywear_image = request.data['bodywear']['image']
-            footwear_image = request.data['footwear']['image']
+        if "bodywear" in request.data: # if the outfit is a one piece clothing item (bodywear + footwear)
+            bodywear_image = request.data["bodywear"]["image"]
+            footwear_image = request.data["footwear"]["image"]
             images = [bodywear_image, footwear_image]
         else:
-            topwear_image = request.data['topwear']['image']
-            bottomwear_image = request.data['bottomwear']['image']
-            footwear_image = request.data['footwear']['image']
+            topwear_image = request.data["topwear"]["image"]
+            bottomwear_image = request.data["bottomwear"]["image"]
+            footwear_image = request.data["footwear"]["image"]
             images = [topwear_image, bottomwear_image, footwear_image]
-        event = request.data['event']
+        event = request.data["event"]
         
         if not event:
             prompt = (
@@ -591,11 +597,11 @@ class AiExpertViewSet(viewsets.ViewSet):
         )
 
         response = response.choices[0].message.content
-        response = json.loads(response.replace('```json', '').replace('```', ''))
+        response = json.loads(response.replace("```json", "").replace("```", ""))
         # make all keys lowercase
         response = {k.lower(): v for k, v in response.items()}
         print("response ", response)
-        response['reason'] = ".\n".join([f"• {sentence}" for sentence in response['reason'].split(".")[:-1]])
+        response["reason"] = ".\n".join([f"• {sentence}" for sentence in response["reason"].split(".")[:-1]])
         # print(response)
         return Response(response)
 
@@ -604,7 +610,7 @@ class StatsViewSet(viewsets.ModelViewSet):
     serializer_class = StatsSerializer
     permission_classes = [permissions.IsAuthenticated]
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def compute_wardrobe_usage(self, user):
         current_date = date.today()  
         wardrobe = Wardrobe.objects.filter(user_id=user).first()
@@ -632,10 +638,14 @@ class StatsViewSet(viewsets.ModelViewSet):
         print("Worn outfits in season ", worn_outfits_in_season)
         worn_items_ids = []
         for outfit in worn_outfits_in_season:
-            if season in outfit.top.seasons:
-                worn_items_ids.append(outfit.top_id)
-            if season in outfit.bottom.seasons:
-                worn_items_ids.append(outfit.bottom_id)
+            if outfit.body:
+                if season in outfit.body.seasons:
+                    worn_items_ids.append(outfit.body_id)
+            else:
+                if season in outfit.top.seasons:
+                    worn_items_ids.append(outfit.top_id)
+                if season in outfit.bottom.seasons:
+                    worn_items_ids.append(outfit.bottom_id)
             if season in outfit.shoes.seasons:
                 worn_items_ids.append(outfit.shoes_id)
         worn_items = len(list(set(worn_items_ids)))
@@ -646,47 +656,52 @@ class StatsViewSet(viewsets.ModelViewSet):
         print("Number of days in season ", number_of_days_in_season)
         worn_outfits_percentage = (len(worn_outfits_in_season) / number_of_days_in_season) * 100
         
-        return Stats.objects.create(wardrobe=wardrobe, worn_clothes_percentage=worn_items_percentage, worn_outfits_percentage=worn_outfits_percentage, worn_outfits=worn_outfits_in_season.count(), total_outfits=number_of_days_in_season, is_latest=True, season=season)
+        return {
+            "worn_clothes_percentage": worn_items_percentage,
+            "worn_outfits_percentage": worn_outfits_percentage,
+            "worn_outfits": worn_outfits_in_season.count(), 
+            "total_outfits": number_of_days_in_season,
+            "season": season
+        }
     
-    @action(detail=False, methods=['get'])
-    def get_wardrobe_stats(self, request):
-        user = request.query_params['userId']
-        stats = self.compute_wardrobe_usage(user)
-            
-        return Response(data=StatsSerializer(stats).data, status=status.HTTP_200_OK)
-    
+    # Wardrobe Usage (percentage of clothes worn in the current season, percentage of outfits worn in the current season)
     # Top 3 Most Used Colors This Month
     # Cele mai putin purtate haine din fiecare categorie
     # Cat la suta din haine sunt de vreme rece, medie, calda (util de exemplu ca sa vezi ca nu ai destule haine pt cand o sa fie frig)
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def get_stats(self, request):
         colors_map = {}
-        userId = request.query_params['userId']
+        userId = request.query_params["userId"]
         for outfit in WornOutfits.objects.filter(user=userId):
             if not outfit.body:
                 for item in [outfit.top, outfit.bottom, outfit.shoes]:
-                    if item.color.lower().replace(' ', '-') in colors_map:
-                        colors_map[item.color.lower().replace(' ', '-')] += 1
+                    if item.color.lower().replace(" ", "-") in colors_map:
+                        colors_map[item.color.lower().replace(" ", "-")] += 1
                     else:
-                        colors_map[item.color.lower().replace(' ', '-')] = 1
+                        colors_map[item.color.lower().replace(" ", "-")] = 1
             else:
                 for item in [outfit.body, outfit.shoes]:
-                    if item.color.lower().replace(' ', '-') in colors_map:
-                        colors_map[item.color.lower().replace(' ', '-')] += 1
+                    if item.color.lower().replace(" ", "-") in colors_map:
+                        colors_map[item.color.lower().replace(" ", "-")] += 1
                     else:
-                        colors_map[item.color.lower().replace(' ', '-')] = 1
+                        colors_map[item.color.lower().replace(" ", "-")] = 1
 
         colors_map = dict(sorted(colors_map.items(), key=lambda item: item[1], reverse=True)[:3])
 
         # compute the least worn items for each category
         wardrobe = Wardrobe.objects.filter(user_id=userId).first()
         least_worn_items = {}
-        for category in ['Topwear', 'Bottomwear', 'Footwear']:
+        for category in ["Topwear", "Bottomwear", "Footwear"]:
             outfit_items = OutfitItem.objects.filter(wardrobe=wardrobe, category=category)
             least_worn_item = None
-            min_worn = float('inf')
+            min_worn = float("inf")
             for item in outfit_items:
-                worn = WornOutfits.objects.filter(user=userId).filter(top=item).count() + WornOutfits.objects.filter(user=userId).filter(bottom=item).count() + WornOutfits.objects.filter(user=userId).filter(shoes=item).count()
+                worn = (
+                    WornOutfits.objects.filter(user=userId).filter(top=item).count() + 
+                    WornOutfits.objects.filter(user=userId).filter(bottom=item).count() + 
+                    WornOutfits.objects.filter(user=userId).filter(shoes=item).count() + 
+                    WornOutfits.objects.filter(user=userId).filter(body=item).count()
+                )
                 if worn < min_worn:
                     min_worn = worn
                     least_worn_item = item
@@ -705,15 +720,17 @@ class StatsViewSet(viewsets.ModelViewSet):
         if total_items == 0:
             return Response(data={ "status": "wardrobe empty"}, status=status.HTTP_200_OK) 
 
-        cold_items = wardrobe_items.filter(seasons__contains='Winter').count()
-        mild_items = wardrobe_items.filter(seasons__contains='Spring').count() + wardrobe_items.filter(seasons__contains='Autumn').count()
-        hot_items = wardrobe_items.filter(seasons__contains='Summer').count()
+        cold_items = wardrobe_items.filter(seasons__contains="Winter").count()
+        mild_items = wardrobe_items.filter(seasons__contains="Spring").count() + wardrobe_items.filter(seasons__contains="Autumn").count()
+        hot_items = wardrobe_items.filter(seasons__contains="Summer").count()
         cold_percentage = round((cold_items / total_items) * 100, 2)
         mild_percentage = round((mild_items / total_items) * 100, 2)
         hot_percentage = round((hot_items / total_items) * 100, 2)
-        clothing_season_distribution = [{'name': 'Cold', 'percent': cold_percentage, 'color': '#00BFFF'}, {'name': 'Mild', 'percent': mild_percentage, 'color': '#ADFF2F'}, {'name': 'Hot', 'percent': hot_percentage, 'color': '#FF4500'}]
+        clothing_season_distribution = [{"name": "Cold", "percent": cold_percentage, "color": '#afcbff'}, {"name": "Mild", "percent": mild_percentage, "color": '#d1d0ff'}, {"name": "Hot", "percent": hot_percentage, "color": '#7b68ee'}]
 
-        return Response(data={ "status": "ok" ,"topColors":colors_map, "leastWornItems": least_worn_items_serialized, "clothingSeasonDistribution": clothing_season_distribution}, status=status.HTTP_200_OK)
+        wardrobe_usage = self.compute_wardrobe_usage(userId)
+        
+        return Response(data={ "status": "ok" ,"topColors":colors_map, "leastWornItems": least_worn_items_serialized, "clothingSeasonDistribution": clothing_season_distribution, "wardrobeUsage": wardrobe_usage}, status=status.HTTP_200_OK)
             
         
         
