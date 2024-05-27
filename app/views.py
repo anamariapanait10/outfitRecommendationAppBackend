@@ -286,16 +286,17 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
             "A beanie": "Beanie"
         }
 
-        subcategory = subcategory_prompts[ai_model.use_clip(list(subcategory_prompts.keys()), request.data["image"])]
+        # subcategory = subcategory_prompts[ai_model.use_clip(list(subcategory_prompts.keys()), request.data["image"])]
         
         subcategory_mappings = { "T-shirt": "Topwear", "Polo Shirt": "Topwear", "Shirt": "Topwear", "Sweater": "Topwear" , "Jacket": "Topwear", "Hoodie": "Topwear", "Blazer": "Topwear",
                                  "Jeans": "Bottomwear", "Track Pants": "Bottomwear", "Shorts": "Bottomwear", "Skirt": "Bottomwear", "Leggings": "Bottomwear", "Trousers": "Bottomwear", 
                                  "Dress": "Bodywear", "Bodysuit": "Bodywear", "Jumpsuit": "Bodywear",
                                  "Sneakers": "Footwear", "Slippers": "Footwear", "Sandals": "Footwear", "Flats": "Footwear", "Sports Shoes": "Footwear", "Heels": "Footwear", "Hiking Shoes": "Footwear", "Boots": "Footwear", "Sandal Heels": "Footwear",
                                  "Tie": "Accessories", "Watch": "Accessories", "Belt": "Accessories", "Jewelry": "Accessories", "Handbag": "Accessories", "Backpack": "Accessories", "Cap": "Headwear", "Hat": "Headwear", "Beanie": "Headwear" }
-        category = subcategory_mappings[subcategory]
 
         gpt_answers = get_classification_from_gpt(request.data['image'])
+        subcategory = gpt_answers['subcategory']
+        category = subcategory_mappings[subcategory]
         
         weather_mapping = {
             'sunny': 30,
@@ -331,18 +332,20 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         # pattern = ai_model.use_clip([f"A {pat.lower()} {subcategory.lower()}" for pat in patterns_list], request.data["image"])
         # pattern = find_substring(pattern, patterns_list)
 
-        season_mappings = {
-            "A clothing item for wearing during spring and autumn": "Spring,Autumn", 
-            "A clothing item for wearing during spring and summer": "Spring,Summer", 
-            "A clothing item for wearing during autumn and winter": "Autumn,Winter", 
-            "A clothing item for wearing during spring": "Spring", 
-            "A clothing item for wearing during summer": "Summer", 
-            "A clothing item for wearing during autumn": "Autumn",
-            "A clothing item for wearing during winter": "Winter", 
-            "A clothing item well suited to all seasons": "Spring,Summer,Autumn,Winter"
-        }
-        season = ai_model.use_clip(list(season_mappings.keys()), request.data["image"])
-        season = season_mappings[season]
+        # season_mappings = {
+        #     "A clothing item for wearing during spring and autumn": "Spring,Autumn", 
+        #     "A clothing item for wearing during spring and summer": "Spring,Summer", 
+        #     "A clothing item for wearing during autumn and winter": "Autumn,Winter", 
+        #     "A clothing item for wearing during spring": "Spring", 
+        #     "A clothing item for wearing during summer": "Summer", 
+        #     "A clothing item for wearing during autumn": "Autumn",
+        #     "A clothing item for wearing during winter": "Winter", 
+        #     "A clothing item well suited to all seasons": "Spring,Summer,Autumn,Winter"
+        # }
+        # season = ai_model.use_clip(list(season_mappings.keys()), request.data["image"])
+        # season = season_mappings[season]
+
+        season = gpt_answers['seasons']
 
         # usages_list = ["Casual", "Ethnic", "Formal", "Sports", "Smart Casual", "Party"]
         # usage = ai_model.use_clip([f"A {us.lower()} {subcategory.lower()}" for us in usages_list], request.data["image"])

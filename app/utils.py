@@ -11,10 +11,14 @@ def find_substring(main_string, string_list):
 
 def get_classification_from_gpt(image):
     prompt = (
-        "Classify this clothing item by color (one of 'white','beige','black','light gray','gray','dark gray','yellow','dark yellow','light green','green','dark green',"
+        "Classify this clothing item by subcategory (one of 'T-shirt','Polo Shirt','Shirt','Sweater','Jacket','Hoodie','Blazer','Jeans',"
+        "'Track Pants','Shorts','Skirt','Leggings','Trousers','Dress','Bodysuit','Jumpsuit','Sneakers','Slippers','Sandals','Flats',"
+        "'Sports Shoes','Heels','Hiking Shoes','Boots','Sandal Heels','Tie','Watch','Belt','Jewelry','Handbag','Backpack','Cap','Hat','Beanie'),"
+        "seasons (one or multiple of 'Spring','Summer','Autumn','Winter', as a string separated with comma and without apostrophes or spaces),"
+        "color (one of 'white','beige','black','light gray','gray','dark gray','yellow','dark yellow','light green','green','dark green',"
         "'turquoise','orange','light blue','blue','dark blue','light pink','pink','red','dark red','brown','purple','multicolor'),"
         "pattern (one of 'Striped','Checkered','Floral','Dotted','Plain','Animal print','Camouflage','Graphic']), material (one of ['Cotton','Wool','Silk','Synthetic fibers','Leather','Linen'])"
-        " and by the best occasion where it could be worn, named occasion in the json (one of ['Casual', 'Ethnic', 'Formal', 'Sports', 'Smart Casual', 'Party'])."
+        " and by the best occasion where it could be worn, named occasion in the json (one of ['Casual','Ethnic','Formal','Sports','Smart Casual','Party'])."
         " Also add the following fields: temperature (numeric value representing the optimal temperature for wearing the clothing item),"
         " weather (the optimal weather for wearing the clothing item, should be one of 'snowy', 'rainy', 'overcast', 'sunny'),"
         " preference (a decimal value between 0 and 1 representing a subjective stylistic preference of wearing this clothing item, don't be afraid to judge harshly). Return answer in json format"
