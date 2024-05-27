@@ -296,6 +296,16 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         category = subcategory_mappings[subcategory]
 
         gpt_answers = get_classification_from_gpt(request.data['image'])
+        
+        weather_mapping = {
+            'sunny': 30,
+            'overcast': 20,
+            'rainy': 10,
+            'snowy': 0
+        }
+        temperature = gpt_answers['temperature']
+        weather = weather_mapping[gpt_answers['weather']]
+        preference = gpt_answers['preference']
 
         # color_list = [
         #     'white', 'beige', 'black', 
@@ -339,7 +349,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         # usage = find_substring(usage, usages_list)
         print('gpt_answers: ', gpt_answers)
         # json = {"category": category, "subcategory": subcategory, "color": color, "season": season, "occasions": usage, "material": material, "pattern": pattern}
-        json = {"category": category, "subcategory": subcategory, "color": gpt_answers['color'], "season": season, "occasions": string.capwords(gpt_answers['occasion']), "material": string.capwords(gpt_answers['material']), "pattern": string.capwords(gpt_answers['pattern'])}
+        json = {"category": category, "subcategory": subcategory, "color": gpt_answers['color'], "season": season, "occasions": string.capwords(gpt_answers['occasion']), "material": string.capwords(gpt_answers['material']), "pattern": string.capwords(gpt_answers['pattern']), "temperature": temperature, "weather": weather, "preference": preference}
         print(f"json = {json}")
         return Response(data=json, status=status.HTTP_200_OK)
     

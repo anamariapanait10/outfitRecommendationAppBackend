@@ -14,7 +14,10 @@ def get_classification_from_gpt(image):
                 "Classify this clothing item by color (one of 'white','beige','black','light gray','gray','dark gray','yellow','dark yellow','light green','green','dark green',"
                 "'turquoise','orange','light blue','blue','dark blue','light pink','pink','red','dark red','brown','purple','multicolor'),"
                 "pattern (one of 'Striped','Checkered','Floral','Dotted','Plain','Animal print','Camouflage','Graphic']), material (one of ['Cotton','Wool','Silk','Synthetic fibers','Leather','Linen'])"
-                " and by the best occasion where it could be worn, named occasion in the json (one of ['Casual', 'Ethnic', 'Formal', 'Sports', 'Smart Casual', 'Party']). Return answer in json format"
+                " and by the best occasion where it could be worn, named occasion in the json (one of ['Casual', 'Ethnic', 'Formal', 'Sports', 'Smart Casual', 'Party'])."
+                " Also add the following fields: temperature (numeric value representing the optimal temperature for wearing the clothing item),"
+                " weather (the optimal weather for wearing the clothing item, should be one of 'snowy', 'rainy', 'overcast', 'sunny'),"
+                " preference (a decimal value between 0 and 1 representing a subjective stylistic preference of wearing this clothing item, don't be afraid to judge harshly). Return answer in json format"
             )
     response = client.chat.completions.create(
         model="gpt-4o",
