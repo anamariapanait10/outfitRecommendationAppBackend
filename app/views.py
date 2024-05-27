@@ -337,7 +337,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         # usages_list = ['Casual', 'Ethnic', 'Formal', 'Sports', 'Smart Casual', 'Party']
         # usage = ai_model.use_clip([f'A {us.lower()} {subcategory.lower()}' for us in usages_list], request.data['image'])
         # usage = find_substring(usage, usages_list)
-
+        print('gpt_answers: ', gpt_answers)
         # json = {"category": category, "subcategory": subcategory, "color": color, "season": season, "occasions": usage, "material": material, "pattern": pattern}
         json = {"category": category, "subcategory": subcategory, "color": gpt_answers['color'], "season": season, "occasions": string.capwords(gpt_answers['occasion']), "material": string.capwords(gpt_answers['material']), "pattern": string.capwords(gpt_answers['pattern'])}
         print(f"json = {json}")
