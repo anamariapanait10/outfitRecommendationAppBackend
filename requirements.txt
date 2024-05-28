@@ -1,4 +1,4 @@
-clip==0.2.0
+clip @ git+https://github.com/openai/CLIP.git
 Django==4.2.9
 django_environ==0.11.2
 djangorestframework==3.14.0
@@ -8,17 +8,12 @@ openai==1.23.6
 opencv_python==4.7.0.72
 opencv_python_headless==4.9.0.80
 pandas==2.0.2
-Pillow==9.5.0
 Pillow==10.3.0
-PyJWT==2.8.0
 PyJWT==2.8.0
 PyMySQL==1.1.0
 pytz==2023.3
-rembg==2.0.56
-Requests==2.31.0
 scikit_learn==1.2.2
 scipy==1.13.0
 tensorflow==2.15.0
-tensorflow_intel==2.15.0
-torch==2.0.1+cu117
+torch==2.0.1
 webcolors==1.13
