@@ -8,7 +8,7 @@ class OutfitItem(models.Model):
     id = models.AutoField(primary_key=True)
     wardrobe = models.ForeignKey(Wardrobe, on_delete=models.CASCADE)
     description = models.TextField(blank=True, null=True)
-    color = models.CharField(max_length=30)
+    color = models.CharField(max_length=100)
     category = models.CharField(max_length=30)
     subCategory = models.CharField(max_length=30)
     pattern = models.CharField(max_length=30, blank=True, null=True)
@@ -57,6 +57,7 @@ class WornOutfits(models.Model):
     bottom = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='bottom', null=True, blank=True)
     shoes = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='shoes')
     body = models.ForeignKey(OutfitItem, on_delete=models.CASCADE, related_name='body', null=True, blank=True)
+    was_recommended = models.BooleanField(default=False)
 
 
 class MarketplaceItems(models.Model):

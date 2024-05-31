@@ -136,23 +136,10 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
     serializer_class = OutfitItemSerializer
     permission_classes = [permissions.IsAuthenticated]
     
-    def create(self, request, *args, **kwargs):
-        wardrobe_id = None
-        if Wardrobe.objects.filter(user_id=request.user).exists():
-            wardrobe_id = Wardrobe.objects.filter(user_id=request.user).first().id
-        else:
-            wardrobe_id = Wardrobe.objects.create(user_id=request.user).id
-
-        request.data["wardrobe"] = wardrobe_id
-        serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            print(serializer.errors)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        self.perform_create(serializer)
-        
-        temperature = request.data["temperature"] # temperatura intre -10 si 40 grade
-        weather = request.data["weather"] # vremea intre 0 si 30
-        preference = round(request.data["preference"], 6) # preferinta intre 0 si 1
+    def create_or_update_item_probability(self, request_data, outfit_item_id, update=False):
+        temperature = request_data["temperature"] # temperatura intre -10 si 40 grade
+        weather = request_data["weather"] # vremea intre 0 si 30
+        preference = round(request_data["preference"], 6) # preferinta intre 0 si 1
     
         sunnyHot = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, 40, 6), ai_model.calc_wear_probability(weather, 30, 6)), 2)
         sunnyMild = round(100 * ai_model.calc_mean(ai_model.calc_wear_probability(temperature, 15, 6), ai_model.calc_wear_probability(weather, 30, 6)), 2)
@@ -180,24 +167,59 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         print("snowyMild = ", format(snowyMild, ".2f"))
         print("snowyCold = ", format(snowyCold, ".2f"))
         
-        ItemProbability.objects.create(
-            outfitItem=OutfitItem.objects.filter(id=serializer.data["id"]).first(), 
-            sunnyHot=sunnyHot,
-            sunnyMild=sunnyMild,
-            sunnyCold=sunnyCold,
-            overcastHot=overcastHot,
-            overcastMild=overcastMild,
-            overcastCold=overcastCold,
-            rainyHot=rainyHot,
-            rainyMild=rainyMild,
-            rainyCold=rainyCold,
-            snowyHot=snowyHot,
-            snowyMild=snowyMild,
-            snowyCold=snowyCold,
-            preference=preference,
-            weatherSliderValue=weather,
-            temperatureSliderValue=temperature
-        )
+        if not update:
+            ItemProbability.objects.create(
+                outfitItem=OutfitItem.objects.filter(id=outfit_item_id).first(), 
+                sunnyHot=sunnyHot,
+                sunnyMild=sunnyMild,
+                sunnyCold=sunnyCold,
+                overcastHot=overcastHot,
+                overcastMild=overcastMild,
+                overcastCold=overcastCold,
+                rainyHot=rainyHot,
+                rainyMild=rainyMild,
+                rainyCold=rainyCold,
+                snowyHot=snowyHot,
+                snowyMild=snowyMild,
+                snowyCold=snowyCold,
+                preference=preference,
+                weatherSliderValue=weather,
+                temperatureSliderValue=temperature
+            )
+        else:
+            ItemProbability.objects.filter(outfitItem=outfit_item_id).update(
+                sunnyHot=sunnyHot,
+                sunnyMild=sunnyMild,
+                sunnyCold=sunnyCold,
+                overcastHot=overcastHot,
+                overcastMild=overcastMild,
+                overcastCold=overcastCold,
+                rainyHot=rainyHot,
+                rainyMild=rainyMild,
+                rainyCold=rainyCold,
+                snowyHot=snowyHot,
+                snowyMild=snowyMild,
+                snowyCold=snowyCold,
+                preference=preference,
+                weatherSliderValue=weather,
+                temperatureSliderValue=temperature
+            )
+        
+    def create(self, request, *args, **kwargs):
+        wardrobe_id = None
+        if Wardrobe.objects.filter(user_id=request.user).exists():
+            wardrobe_id = Wardrobe.objects.filter(user_id=request.user).first().id
+        else:
+            wardrobe_id = Wardrobe.objects.create(user_id=request.user).id
+
+        request.data["wardrobe"] = wardrobe_id
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            print(serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        self.perform_create(serializer)
+        
+        self.create_or_update_item_probability(request_date=request.data, outfit_item_id=serializer.data["id"])
         
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -231,6 +253,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
             if(new_data[key] != None):
                 setattr(item, key, new_data[key])
 
+        self.create_or_update_item_probability(request_data=new_data, outfit_item_id=kwargs["pk"], update=True)
         item.save()
 
         return Response(data="{}", status=status.HTTP_200_OK)
@@ -625,6 +648,7 @@ class StatsViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=["get"])
     def compute_wardrobe_usage(self, user):
+        # Cat la suta din hainele de sezon au fost purtate
         current_date = date.today()  
         wardrobe = Wardrobe.objects.filter(user_id=user).first()
         month = current_date.month
@@ -640,68 +664,80 @@ class StatsViewSet(viewsets.ModelViewSet):
         else:
             season = "Winter"
             start_date = date(current_date.year, 12, 1)
-        print("Season ", season)
-        print("Month ", month)
         total_seasonal_items = OutfitItem.objects.filter(wardrobe=wardrobe, seasons__contains=season).count()
-        print("Total seasonal items ", total_seasonal_items)
+        
         if total_seasonal_items == 0:
-            return 0
+            worn_items_percentage = {"error": "No seasonal items in wardrobe"}
         # get the ids of the items that were worn in the current season and that are designated for the current season
         worn_outfits_in_season = WornOutfits.objects.filter(user=user, date__gte=start_date)
-        print("Worn outfits in season ", worn_outfits_in_season)
-        worn_items_ids = []
-        for outfit in worn_outfits_in_season:
-            if outfit.body:
-                if season in outfit.body.seasons:
-                    worn_items_ids.append(outfit.body_id)
-            else:
-                if season in outfit.top.seasons:
-                    worn_items_ids.append(outfit.top_id)
-                if season in outfit.bottom.seasons:
-                    worn_items_ids.append(outfit.bottom_id)
-            if season in outfit.shoes.seasons:
-                worn_items_ids.append(outfit.shoes_id)
-        worn_items = len(list(set(worn_items_ids)))
-        print("Worn items ", worn_items)
-        worn_items_percentage = (worn_items / total_seasonal_items) * 100
-        print("Worn items percentage ", worn_items_percentage)
-        number_of_days_in_season = (current_date - start_date).days
-        print("Number of days in season ", number_of_days_in_season)
-        worn_outfits_percentage = (len(worn_outfits_in_season) / number_of_days_in_season) * 100
+        if len(worn_outfits_in_season) == 0:
+            worn_items_percentage = {"error": "No outfits worn in the current season"}
+        else:
+            worn_items_ids = []
+            for outfit in worn_outfits_in_season:
+                if outfit.body:
+                    if season.lower() in outfit.body.seasons.lower():
+                        worn_items_ids.append(outfit.body_id)
+                else:
+                    if season.lower() in outfit.top.seasons.lower():
+                        worn_items_ids.append(outfit.top_id)
+                    if season.lower() in outfit.bottom.seasons.lower():
+                        worn_items_ids.append(outfit.bottom_id)
+                if season.lower() in outfit.shoes.seasons.lower():
+                    worn_items_ids.append(outfit.shoes_id)
+            worn_items = len(list(set(worn_items_ids)))
+            worn_items_percentage = (worn_items / total_seasonal_items) * 100
+            print("Worn items percentage ", worn_items_percentage)
+                
+        # Cate outfituri recomandate au fost purtate in ultima luna
+        total_outfits_worn_in_month = WornOutfits.objects.filter(user=user, date__gte=start_date).count()
+        outfits_recommended = WornOutfits.objects.filter(user=user, date__gte=start_date).filter(was_recommended=True)
+        if total_outfits_worn_in_month == 0:
+            worn_recommended_outfits_percentage = {"error": "No outfits worn in the last month"}
+        else:
+            worn_recommended_outfits_percentage = (len(outfits_recommended) / total_outfits_worn_in_month) * 100
         
         return {
             "worn_clothes_percentage": worn_items_percentage,
-            "worn_outfits_percentage": worn_outfits_percentage,
-            "worn_outfits": worn_outfits_in_season.count(), 
-            "total_outfits": number_of_days_in_season,
+            "worn_outfits_percentage": worn_recommended_outfits_percentage,
+            "worn_outfits": outfits_recommended.count(),
+            "total_outfits": total_outfits_worn_in_month,
             "season": season
         }
     
-    # Wardrobe Usage (percentage of clothes worn in the current season, percentage of outfits worn in the current season)
-    # Top 3 Most Used Colors This Month
-    # Cele mai putin purtate haine din fiecare categorie
+    # Cat la suta din hainele de sezon au fost purtate
+    # Top 3 cele mai folosite culori luna asta
+    # Cele mai putin purtate haine din luna asta
     # Cat la suta din haine sunt de vreme rece, medie, calda (util de exemplu ca sa vezi ca nu ai destule haine pt cand o sa fie frig)
+    # Cate outfituri recomandate au fost purtate in ultima luna
     @action(detail=False, methods=["get"])
     def get_stats(self, request):
+        # top 3 cele mai folosite culori luna asta
         colors_map = {}
         userId = request.query_params["userId"]
-        for outfit in WornOutfits.objects.filter(user=userId):
-            if not outfit.body:
-                for item in [outfit.top, outfit.bottom, outfit.shoes]:
-                    if item.color.lower().replace(" ", "-") in colors_map:
-                        colors_map[item.color.lower().replace(" ", "-")] += 1
-                    else:
-                        colors_map[item.color.lower().replace(" ", "-")] = 1
-            else:
-                for item in [outfit.body, outfit.shoes]:
-                    if item.color.lower().replace(" ", "-") in colors_map:
-                        colors_map[item.color.lower().replace(" ", "-")] += 1
-                    else:
-                        colors_map[item.color.lower().replace(" ", "-")] = 1
+        month = date.today().month
+        first_day_of_month = date(date.today().year, month, 1)
+        outfits = WornOutfits.objects.filter(user=userId, date__gte=first_day_of_month)
+        if len(outfits) == 0:
+            colors_map = {"error": "Not enough data for this month"}
+        else: 
+            for outfit in outfits:
+                if not outfit.body:
+                    for item in [outfit.top, outfit.bottom, outfit.shoes]:
+                        if item.color.lower().replace(" ", "-") in colors_map:
+                            colors_map[item.color.lower().replace(" ", "-")] += 1
+                        else:
+                            colors_map[item.color.lower().replace(" ", "-")] = 1
+                else:
+                    for item in [outfit.body, outfit.shoes]:
+                        if item.color.lower().replace(" ", "-") in colors_map:
+                            colors_map[item.color.lower().replace(" ", "-")] += 1
+                        else:
+                            colors_map[item.color.lower().replace(" ", "-")] = 1
 
-        colors_map = dict(sorted(colors_map.items(), key=lambda item: item[1], reverse=True)[:3])
+            colors_map = dict(sorted(colors_map.items(), key=lambda item: item[1], reverse=True)[:3])
 
-        # compute the least worn items for each category
+        # cele mai putin purtate haine din luna asta
         wardrobe = Wardrobe.objects.filter(user_id=userId).first()
         least_worn_items = {}
         for category in ["Topwear", "Bottomwear", "Footwear"]:
@@ -710,10 +746,10 @@ class StatsViewSet(viewsets.ModelViewSet):
             min_worn = float("inf")
             for item in outfit_items:
                 worn = (
-                    WornOutfits.objects.filter(user=userId).filter(top=item).count() + 
-                    WornOutfits.objects.filter(user=userId).filter(bottom=item).count() + 
-                    WornOutfits.objects.filter(user=userId).filter(shoes=item).count() + 
-                    WornOutfits.objects.filter(user=userId).filter(body=item).count()
+                    WornOutfits.objects.filter(user=userId, date__gte=first_day_of_month).filter(top=item).count() + 
+                    WornOutfits.objects.filter(user=userId, date__gte=first_day_of_month).filter(bottom=item).count() + 
+                    WornOutfits.objects.filter(user=userId, date__gte=first_day_of_month).filter(shoes=item).count() + 
+                    WornOutfits.objects.filter(user=userId, date__gte=first_day_of_month).filter(body=item).count()
                 )
                 if worn < min_worn:
                     min_worn = worn
@@ -725,7 +761,7 @@ class StatsViewSet(viewsets.ModelViewSet):
             serializer = OutfitItemSerializer(item)
             least_worn_items_serialized[category] = serializer.data
 
-        # compute the percentage of clothes for each type of weather
+        # Cat la suta din haine sunt de vreme rece, medie, calda
         wardrobe_items = OutfitItem.objects.filter(wardrobe=wardrobe)
         total_items = len(wardrobe_items)
         clothing_season_distribution = []
