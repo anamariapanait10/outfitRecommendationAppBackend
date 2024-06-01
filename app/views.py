@@ -8,6 +8,7 @@ from rest_framework.decorators import action
 import clothesFeatureExtraction.clothes_recognition_module as ai_model
 from openai import OpenAI
 from datetime import date
+from collections import defaultdict
 import json
 import numpy as np
 from app.utils import get_classification_from_gpt, get_description_from_gpt
@@ -219,7 +220,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         self.perform_create(serializer)
         
-        self.create_or_update_item_probability(request_date=request.data, outfit_item_id=serializer.data["id"])
+        self.create_or_update_item_probability(request_data=request.data, outfit_item_id=serializer.data["id"])
         
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -532,6 +533,7 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
     def wear(self, request):
         outfitItems = request.data["outfit"]
         date = request.data["date"]
+        was_recommended = request.data["was_recommended"]
         first = OutfitItem.objects.filter(id=outfitItems[0]["id"]).first()
         second = OutfitItem.objects.filter(id=outfitItems[1]["id"]).first()
         if len(outfitItems) > 2:
@@ -545,7 +547,7 @@ class WornOutfitsViewSet(viewsets.ModelViewSet):
         shoes = next((obj for obj in outfitItems if obj.category == "Footwear"), None)
         body = next((obj for obj in outfitItems if obj.category == "Bodywear"), None)
 
-        WornOutfits.objects.create(date=date, user=request.user, top=top, bottom=bottom, shoes=shoes, body=body)
+        WornOutfits.objects.create(date=date, user=request.user, top=top, bottom=bottom, shoes=shoes, body=body, was_recommended=was_recommended)
 
         return Response(data="{}", status=status.HTTP_200_OK)
     
@@ -669,7 +671,8 @@ class StatsViewSet(viewsets.ModelViewSet):
         if total_seasonal_items == 0:
             worn_items_percentage = {"error": "No seasonal items in wardrobe"}
         # get the ids of the items that were worn in the current season and that are designated for the current season
-        worn_outfits_in_season = WornOutfits.objects.filter(user=user, date__gte=start_date)
+        worn_outfits_in_season = WornOutfits.objects.filter(user=user, date__gte=start_date.strftime("%Y-%m-%d"))
+        
         if len(worn_outfits_in_season) == 0:
             worn_items_percentage = {"error": "No outfits worn in the current season"}
         else:
@@ -688,10 +691,11 @@ class StatsViewSet(viewsets.ModelViewSet):
             worn_items = len(list(set(worn_items_ids)))
             worn_items_percentage = (worn_items / total_seasonal_items) * 100
             print("Worn items percentage ", worn_items_percentage)
-                
+            
         # Cate outfituri recomandate au fost purtate in ultima luna
-        total_outfits_worn_in_month = WornOutfits.objects.filter(user=user, date__gte=start_date).count()
-        outfits_recommended = WornOutfits.objects.filter(user=user, date__gte=start_date).filter(was_recommended=True)
+        total_outfits_worn_in_month = WornOutfits.objects.filter(user=user, date__gte=start_date.strftime("%Y-%m-%d")).count()
+        outfits_recommended = WornOutfits.objects.filter(user=user, date__gte=start_date.strftime("%Y-%m-%d")).filter(was_recommended=True)
+
         if total_outfits_worn_in_month == 0:
             worn_recommended_outfits_percentage = {"error": "No outfits worn in the last month"}
         else:
@@ -769,12 +773,45 @@ class StatsViewSet(viewsets.ModelViewSet):
         if total_items == 0:
             return Response(data={ "status": "wardrobe empty"}, status=status.HTTP_200_OK) 
 
-        cold_items = wardrobe_items.filter(seasons__contains="Winter").count()
-        mild_items = wardrobe_items.filter(seasons__contains="Spring").count() + wardrobe_items.filter(seasons__contains="Autumn").count()
-        hot_items = wardrobe_items.filter(seasons__contains="Summer").count()
+        season_counts = defaultdict(float)
+        for item in wardrobe_items:
+            seasons = item.seasons.split(",")
+            num_seasons = len(seasons)
+            for season in seasons:
+                season_counts[season.strip()] += 1 / num_seasons
+
+        cold_items = season_counts['Winter']
+        mild_items = season_counts['Spring'] + season_counts['Autumn']
+        hot_items = season_counts['Summer']
+
+        # cold_items = wardrobe_items.filter(seasons__contains="Winter").count()
+        # mild_items = wardrobe_items.filter(seasons__contains="Spring").count() + wardrobe_items.filter(seasons__contains="Autumn").count()
+        # hot_items = wardrobe_items.filter(seasons__contains="Summer").count()
         cold_percentage = round((cold_items / total_items) * 100, 2)
         mild_percentage = round((mild_items / total_items) * 100, 2)
         hot_percentage = round((hot_items / total_items) * 100, 2)
+        
+        # Ensure the total percentage sums to 100%
+        total_percentage = cold_percentage + mild_percentage + hot_percentage
+        if total_percentage != 100:
+            difference = 100 - total_percentage
+            if difference > 0:
+                # Add the difference to the season with the highest count
+                if cold_items >= mild_items and cold_items >= hot_items:
+                    cold_percentage += difference
+                elif mild_items >= cold_items and mild_items >= hot_items:
+                    mild_percentage += difference
+                else:
+                    hot_percentage += difference
+            else:
+                # Subtract the difference from the season with the highest count
+                if cold_items >= mild_items and cold_items >= hot_items:
+                    cold_percentage += difference
+                elif mild_items >= cold_items and mild_items >= hot_items:
+                    mild_percentage += difference
+                else:
+                    hot_percentage += difference
+            
         clothing_season_distribution = [{"name": "Cold", "percent": cold_percentage, "color": '#afcbff'}, {"name": "Mild", "percent": mild_percentage, "color": '#d1d0ff'}, {"name": "Hot", "percent": hot_percentage, "color": '#7b68ee'}]
 
         wardrobe_usage = self.compute_wardrobe_usage(userId)

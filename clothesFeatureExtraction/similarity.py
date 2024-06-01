@@ -54,7 +54,11 @@ class Similarity:
             visual_similarity = cosine_similarity([base_features], [candidate_features])[0][0]
             visual_similarities.append(visual_similarity)
 
+        print("cos_similarities_description ", len(cos_similarities_description), cos_similarities_description)
+        print("visual_similarities ", len(visual_similarities), visual_similarities)
+        print("match_scores ", len(match_scores), match_scores)
         combined_scores = 0.3 * np.array(cos_similarities_description) + 0.3 * np.array(visual_similarities) + 0.4 * np.array(match_scores)
+        print("combined_scores ", len(combined_scores), combined_scores)
         return combined_scores
 
     def get_top_similar_items(self, base_item, candidate_items, num_results=3):

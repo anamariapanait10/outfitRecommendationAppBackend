@@ -16,10 +16,10 @@ def get_classification_from_gpt(image):
         "'Sports Shoes','Heels','Hiking Shoes','Boots','Sandal Heels','Tie','Watch','Belt','Jewelry','Handbag','Backpack','Cap','Hat','Beanie'),"
         "seasons (one or multiple of 'Spring','Summer','Autumn','Winter', as a string separated with comma and without apostrophes or spaces),"
         "color (one of more of 'white','beige','black','light gray','gray','dark gray','yellow','dark yellow','light green','green','dark green',"
-        "'turquoise','orange','light blue','blue','dark blue','light pink','pink','red','dark red','brown','purple','multicolor', as a string separated with comma and without apostrophes or spaces),"
+        "'turquoise','orange','light blue','blue','dark blue','light pink','pink','red','dark red','brown','purple','multicolor', as a string separated with comma and without apostrophes or spaces. If there are more that 3 colors please select only 'multicolor'.),"
         "pattern (one or more of 'Striped','Checkered','Floral','Dotted','Plain','Animal print','Camouflage','Graphic']),"
         "material (one of ['Cotton','Wool','Silk','Synthetic fibers','Leather','Linen'])"
-        " and by the best occasion where it could be worn, named occasion in the json (one or more of ['Casual','Ethnic','Formal','Sports','Smart Casual','Party'], , as a string separated with comma and without apostrophes or spaces)."
+        " and by the best occasion where it could be worn, named occasion in the json (one or more of ['Casual','Ethnic','Formal','Sports','Smart Casual','Party'], , as a string separated with comma and without apostrophes or spaces and all words capitalized)."
         " Also add the following fields: temperature (numeric value representing the optimal temperature for wearing the clothing item),"
         " weather (the optimal weather for wearing the clothing item, should be one of 'snowy', 'rainy', 'overcast', 'sunny'),"
         " preference (a decimal value between 0 and 1 representing a subjective stylistic preference of wearing this clothing item, don't be afraid to judge harshly). Return answer in json format"
@@ -46,6 +46,7 @@ def get_classification_from_gpt(image):
 
     response = response.choices[0].message.content
     response = json.loads(response.replace('```json', '').replace('```', ''))
+    print(response)
     return response
 
 def get_description_from_gpt(item):
