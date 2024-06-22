@@ -1,6 +1,7 @@
 import base64
 import string
 from django.contrib.auth.models import User
+from django.db.models import Q
 from app.models import ItemProbability, MarketplaceItems, OutfitItem, Wardrobe, WornOutfits, Stats
 from rest_framework import permissions, serializers, viewsets, status
 from rest_framework.response import Response
@@ -416,11 +417,31 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def get_recommendations(self, request, num_outfits=3):
         user = request.query_params["userId"]
+        print(f"formal {request.query_params['isFormal']}, {type(request.query_params['isFormal'])}")
+        isFormalOutfit = request.query_params["isFormal"] == "true"
+        if isFormalOutfit:
+            occasions = ["Formal", "Party", "Ethnic"]
+        else:
+            occasions = ["Casual", "Smart Casual", "Sports"]
         wardrobe = Wardrobe.objects.filter(user_id=user).first()
-        topwear = OutfitItem.objects.all().filter(category="topwear").filter(wardrobe_id=wardrobe.id)
-        bottomwear = OutfitItem.objects.all().filter(category="bottomwear").filter(wardrobe_id=wardrobe.id)
-        footwear = OutfitItem.objects.all().filter(category="footwear").filter(wardrobe_id=wardrobe.id)
-        bodywear = OutfitItem.objects.all().filter(category="bodywear").filter(wardrobe_id=wardrobe.id)
+        
+        # build the filter for occasions
+        topwear_filter = Q()
+        bottomwear_filter = Q()
+        footwear_filter = Q()
+        bodywear_filter = Q()
+
+        for occasion in occasions:
+            topwear_filter |= Q(occasions__contains=occasion)
+            bottomwear_filter |= Q(occasions__contains=occasion)
+            footwear_filter |= Q(occasions__contains=occasion)
+            bodywear_filter |= Q(occasions__contains=occasion)
+
+        # Filter the wardrobe items by category and occasions
+        topwear = OutfitItem.objects.filter(category="topwear", wardrobe_id=wardrobe.id).filter(topwear_filter)
+        bottomwear = OutfitItem.objects.filter(category="bottomwear", wardrobe_id=wardrobe.id).filter(bottomwear_filter)
+        footwear = OutfitItem.objects.filter(category="footwear", wardrobe_id=wardrobe.id).filter(footwear_filter)
+        bodywear = OutfitItem.objects.filter(category="bodywear", wardrobe_id=wardrobe.id).filter(bodywear_filter)
         
         weather = request.query_params["weather"]
         temperature = request.query_params["temperature"]
