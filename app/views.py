@@ -728,16 +728,20 @@ class StatsViewSet(viewsets.ModelViewSet):
             for outfit in outfits:
                 if not outfit.body:
                     for item in [outfit.top, outfit.bottom, outfit.shoes]:
-                        if item.color.lower().replace(" ", "-") in colors_map:
-                            colors_map[item.color.lower().replace(" ", "-")] += 1
-                        else:
-                            colors_map[item.color.lower().replace(" ", "-")] = 1
+                        colors = item.color.split(',')
+                        for color in colors:
+                            if color.lower().replace(" ", "-") in colors_map:
+                                colors_map[color.lower().replace(" ", "-")] += 1
+                            else:
+                                colors_map[color.lower().replace(" ", "-")] = 1
                 else:
                     for item in [outfit.body, outfit.shoes]:
-                        if item.color.lower().replace(" ", "-") in colors_map:
-                            colors_map[item.color.lower().replace(" ", "-")] += 1
-                        else:
-                            colors_map[item.color.lower().replace(" ", "-")] = 1
+                        colors = item.color.split(',')
+                        for color in colors:
+                            if color.lower().replace(" ", "-") in colors_map:
+                                colors_map[color.lower().replace(" ", "-")] += 1
+                            else:
+                                colors_map[color.lower().replace(" ", "-")] = 1
 
             colors_map = dict(sorted(colors_map.items(), key=lambda item: item[1], reverse=True)[:3])
 
@@ -787,9 +791,9 @@ class StatsViewSet(viewsets.ModelViewSet):
         # cold_items = wardrobe_items.filter(seasons__contains="Winter").count()
         # mild_items = wardrobe_items.filter(seasons__contains="Spring").count() + wardrobe_items.filter(seasons__contains="Autumn").count()
         # hot_items = wardrobe_items.filter(seasons__contains="Summer").count()
-        cold_percentage = round((cold_items / total_items) * 100, 2)
-        mild_percentage = round((mild_items / total_items) * 100, 2)
-        hot_percentage = round((hot_items / total_items) * 100, 2)
+        cold_percentage = round((cold_items / total_items) * 100, 1)
+        mild_percentage = round((mild_items / total_items) * 100, 1)
+        hot_percentage = round((hot_items / total_items) * 100, 1)
         
         # Ensure the total percentage sums to 100%
         total_percentage = cold_percentage + mild_percentage + hot_percentage
@@ -812,9 +816,12 @@ class StatsViewSet(viewsets.ModelViewSet):
                 else:
                     hot_percentage += difference
             
-        clothing_season_distribution = [{"name": "Cold", "percent": cold_percentage, "color": '#afcbff'}, {"name": "Mild", "percent": mild_percentage, "color": '#d1d0ff'}, {"name": "Hot", "percent": hot_percentage, "color": '#7b68ee'}]
+        clothing_season_distribution = [{"name": "% Cold", "percent": cold_percentage, "color": '#afcbff'}, {"name": "% Mild", "percent": mild_percentage, "color": '#d1d0ff'}, {"name": "% Hot", "percent": hot_percentage, "color": '#7b68ee'}]
 
         wardrobe_usage = self.compute_wardrobe_usage(userId)
+        print("------------------")
+        print(wardrobe_usage)
+        print("------------------")
         
         return Response(data={ "status": "ok" ,"topColors":colors_map, "leastWornItems": least_worn_items_serialized, "clothingSeasonDistribution": clothing_season_distribution, "wardrobeUsage": wardrobe_usage}, status=status.HTTP_200_OK)
             
