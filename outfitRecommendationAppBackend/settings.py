@@ -168,10 +168,22 @@ LOGGING = {
         },
    },
    'loggers': {
-      'django': {
-         'handlers': ['file'],
-         'level': 'DEBUG',
-         'propagate': True,
-      },
+        'api': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+        },
+        'django': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+        },
+        'django.request': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+        },
+        'django.db.backends': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
    },
 }
