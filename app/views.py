@@ -417,7 +417,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def get_recommendations(self, request, num_outfits=3):
         user = request.query_params["userId"]
-        print(f"formal {request.query_params['isFormal']}, {type(request.query_params['isFormal'])}")
+
         isFormalOutfit = request.query_params["isFormal"] == "true"
         if isFormalOutfit:
             occasions = ["Formal", "Party", "Ethnic"]
@@ -484,7 +484,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
                         prior = clothing_prob[probs_weatherTemp_given_cloth.index(prob)] # P(clothing item)
                         marginal = round(sum([round(p * cp, 12) for p, cp in zip(probs_weatherTemp_given_cloth, clothing_prob)]), 12) # P(weather & temp)
                         posterior = round(round(likelihood * prior, 12) / marginal, 12)
-                        print(f"\t{prior}\t{marginal}\t{likelihood}")
+                        print(f"\t{prior} \t {marginal} \t {likelihood}")
                         new_probabilities.append(posterior)
                     
                     print(f"{category_name} P(clothing item|weather & temp) before normalization ", new_probabilities)
@@ -836,7 +836,15 @@ class StatsViewSet(viewsets.ModelViewSet):
                     mild_percentage += difference
                 else:
                     hot_percentage += difference
-            
+
+        cold_percentage = "{:.2f}".format(cold_percentage)
+        mild_percentage = "{:.2f}".format(mild_percentage)
+        hot_percentage = "{:.2f}".format(hot_percentage)
+
+        cold_percentage = float(cold_percentage)
+        mild_percentage = float(mild_percentage)
+        hot_percentage = float(hot_percentage)
+        
         clothing_season_distribution = [{"name": "% Cold", "percent": cold_percentage, "color": '#afcbff'}, {"name": "% Mild", "percent": mild_percentage, "color": '#d1d0ff'}, {"name": "% Hot", "percent": hot_percentage, "color": '#7b68ee'}]
 
         wardrobe_usage = self.compute_wardrobe_usage(userId)
