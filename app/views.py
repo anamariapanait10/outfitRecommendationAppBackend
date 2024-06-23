@@ -836,7 +836,15 @@ class StatsViewSet(viewsets.ModelViewSet):
                     mild_percentage += difference
                 else:
                     hot_percentage += difference
-            
+
+        cold_percentage = "{:.2f}".format(cold_percentage)
+        mild_percentage = "{:.2f}".format(mild_percentage)
+        hot_percentage = "{:.2f}".format(hot_percentage)
+
+        cold_percentage = float(cold_percentage)
+        mild_percentage = float(mild_percentage)
+        hot_percentage = float(hot_percentage)
+        
         clothing_season_distribution = [{"name": "% Cold", "percent": cold_percentage, "color": '#afcbff'}, {"name": "% Mild", "percent": mild_percentage, "color": '#d1d0ff'}, {"name": "% Hot", "percent": hot_percentage, "color": '#7b68ee'}]
 
         wardrobe_usage = self.compute_wardrobe_usage(userId)
