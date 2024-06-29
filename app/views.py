@@ -591,11 +591,36 @@ class MarketplaceItemsViewSet(viewsets.ModelViewSet):
 
         return Response(result)
     
+    def retrieve(self, request, *args, **kwargs):
+        # Get the primary key from the URL
+        pk = kwargs.get('pk', None)
+
+        if pk is not None:
+            try:
+                # Retrieve the product using the primary key
+                item = MarketplaceItems.objects.get(pk=pk)
+                
+                # Serialize the product
+                serializer = MarketplaceItemReadSerializer(item)
+                user = User.objects.filter(username=item.user_id).first()
+                data = serializer.data
+                data["username"] = user.first_name + " " + user.last_name
+                print(data["username"])
+                return Response(data, status=status.HTTP_200_OK)
+            except MarketplaceItems.DoesNotExist:
+                return Response({'error': 'Marketplace Item not found'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            return Response({'error': 'Product ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
     @action(detail=False, methods=["get"])
     def similarity(self, request):
         marketplace_item_id = request.query_params["marketplaceItemId"]
         marketplace_item = MarketplaceItems.objects.prefetch_related("outfit").filter(id=marketplace_item_id).first()
-        marketplace_items = MarketplaceItems.objects.prefetch_related("outfit").exclude(id=marketplace_item_id)
+        marketplace_items = MarketplaceItems.objects.prefetch_related("outfit").exclude(id=marketplace_item_id).exclude(user_id=request.user)
+        
+        if len(marketplace_items) == 0:
+            return Response(data=[], status=status.HTTP_200_OK)
+        
         similarity = ai_model.calculate_similarity(marketplace_item, marketplace_items)
         
         result = []
