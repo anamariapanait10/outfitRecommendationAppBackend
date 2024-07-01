@@ -386,13 +386,13 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
             encoded_image = base64.b64encode(f.read())
         return encoded_image
 
-    def outfits_have_more_than_two_items_in_common(self, outfit1, outfit2):
+    def outfits_have_more_than_one_item_in_common(self, outfit1, outfit2):
         common_items = 0
         for item1 in outfit1:
             for item2 in outfit2:
                 if item1["id"] == item2["id"]:
                     common_items += 1
-        return common_items > 2
+        return common_items > 1
     
     def check_not_enough_items_in_each_category(self, topwear, bottomwear, footwear, bodywear, one_piece):
         if ((len(topwear) < 1 or len(bottomwear) < 1) and not one_piece) or (len(bodywear) < 1 and one_piece) or len(footwear) < 1:
@@ -511,7 +511,7 @@ class OutfitItemViewSet(viewsets.ModelViewSet):
         recommendations = []
         while len(recommendations) < num_outfits:
             new_outfit = generate_outfit(clothing_probabilities)
-            if all(not self.outfits_have_more_than_two_items_in_common(new_outfit, existing_outfit) for existing_outfit in recommendations):
+            if all(not self.outfits_have_more_than_one_item_in_common(new_outfit, existing_outfit) for existing_outfit in recommendations):
                 recommendations.append(new_outfit)
         
         # switch the first two outfits to have the first outfit in the middle
