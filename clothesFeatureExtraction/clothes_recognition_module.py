@@ -196,6 +196,8 @@ def normalize_probabilities(probabilities, num_decimals=6):
                 if sum(normalized_probabilities) == 1.0:
                     break
             elif sum(normalized_probabilities) > 1.0:
+                if normalized_probabilities[i] - 1/10**(num_decimals) < 0:
+                    continue
                 normalized_probabilities[i] -= 1/10**(num_decimals)
                 normalized_probabilities[i] = round(normalized_probabilities[i], num_decimals)
                 if sum(normalized_probabilities) == 1.0:
