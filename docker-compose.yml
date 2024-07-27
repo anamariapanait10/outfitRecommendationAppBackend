@@ -4,9 +4,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: gunicorn outfitRecommendationAppBackend.wsgi:application --bind 0.0.0.0:8000
+    command: gunicorn outfitRecommendationAppBackend.wsgi:application --bind 0.0.0.0:3000 --error-logfile error.log --access-logfile access.log --capture-output --log-level debug
     network_mode: "host"
     restart: "unless-stopped"
 
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    network_mode: "host"
+    restart: "unless-stopped"
+    volumes:
+      - type: bind
+        source: /etc/letsencrypt/live/outfit-recommendation.xyz
+        target: /etc/letsencrypt/live/outfit-recommendation.xyz
 
 
